@@ -1,0 +1,4 @@
+{ "affix": { "name": "Frostbound", "weight": 2, "pool": "elite" },
+  "conditions": { "none_of": [ { "dimensions": "minecraft:the_nether" } ] },
+  "combat": { "on_hit": { "effects": [ { "effect": "minecraft:slowness", "amplifier": 1, "duration": 60 } ] } },
+  "particles": { "type": "minecraft:snowflake", "count": 1, "interval": 4 } }

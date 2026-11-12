@@ -1,0 +1,5 @@
+{
+  "_comment": "Creepers still explode and hurt, but never break blocks.",
+  "conditions": { "mobs": "minecraft:creeper" },
+  "behavior": { "griefing": false }
+}

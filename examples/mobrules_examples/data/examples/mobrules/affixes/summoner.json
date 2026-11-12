@@ -1,0 +1,2 @@
+{ "affix": { "name": "Brood", "weight": 1, "pool": "elite" },
+  "abilities": [ { "type": "summon", "cooldown": 300, "mobs": [ { "count": 2 } ], "message": "Come, my kin!" } ] }

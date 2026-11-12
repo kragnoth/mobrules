@@ -1,0 +1,3 @@
+{ "_comment": "Any zombie that kills a player becomes their nemesis.",
+  "conditions": { "mobs": ["minecraft:zombie", "minecraft:husk", "minecraft:drowned"] },
+  "nemesis": { "glow_at": 3, "reward": [ { "item": "minecraft:diamond", "chance": 0.5 }, { "item": "minecraft:experience_bottle", "count": [1, 3] } ] } }

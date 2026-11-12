@@ -1,0 +1,5 @@
+{
+  "_comment": "Zombified piglins and hoglins leave alone anyone wearing gold armor.",
+  "conditions": { "mobs": ["minecraft:zombified_piglin", "minecraft:hoglin"] },
+  "behavior": { "ignore_players_wearing": ["minecraft:golden_helmet", "minecraft:golden_chestplate", "minecraft:golden_leggings", "minecraft:golden_boots"] }
+}

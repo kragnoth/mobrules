@@ -1,0 +1,7 @@
+{
+  "_comment": "On a full moon, wolves that spawn hunt players, and are bigger and faster.",
+  "conditions": { "mobs": "minecraft:wolf", "moon_phases": [0] },
+  "behavior": { "hostile_to": ["minecraft:player"], "never_target": ["minecraft:sheep"] },
+  "attributes": { "scale": { "multiply": 1.3 }, "movement_speed": { "multiply": 1.2 } },
+  "effects": [ { "effect": "minecraft:strength", "amplifier": 0 } ]
+}

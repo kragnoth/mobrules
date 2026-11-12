@@ -1,0 +1,4 @@
+{ "affix": { "name": "Stalwart", "weight": 3, "pool": "elite" },
+  "attributes": { "max_health": { "multiply": 1.8 }, "armor": { "add": 4 } },
+  "combat": { "no_knockback": true },
+  "abilities": [ { "type": "shield", "cooldown": 200, "health_below": 0.6, "duration": 50 } ] }

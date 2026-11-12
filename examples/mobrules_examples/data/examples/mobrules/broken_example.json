@@ -1,0 +1,5 @@
+{
+  "_comment": "Deliberately broken (typo'd key and unknown item) to show error reporting. Delete it.",
+  "conditions": { "mobz": "minecraft:pig" },
+  "equipment": { "head": "minecraft:not_a_real_item" }
+}

@@ -1,0 +1,6 @@
+{ "_comment": "During the Blood Moon, monsters hit harder, move faster and hunt you.",
+  "conditions": { "hostile": true, "events": ["examples:blood_moon"] },
+  "attributes": { "attack_damage": { "multiply": 1.5 }, "movement_speed": { "multiply": 1.2 }, "follow_range": { "set": 48 } },
+  "behavior": { "angry_on_spawn": true },
+  "particles": { "type": "minecraft:crimson_spore", "count": 1, "interval": 10 },
+  "loot": { "xp": { "multiply": 2 } } }

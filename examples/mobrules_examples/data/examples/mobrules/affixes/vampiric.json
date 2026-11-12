@@ -1,0 +1,4 @@
+{ "_comment": "Affix: only applied when a rule with \"affixes\" rolls it.",
+  "affix": { "name": "Vampiric", "weight": 2, "pool": "elite" },
+  "combat": { "on_hit": { "lifesteal": 0.5 } },
+  "particles": { "type": "minecraft:crimson_spore", "count": 1, "interval": 6 } }

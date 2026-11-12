@@ -1,0 +1,1729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mob Rules Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1C2331;
+  --panel: #252E40;
+  --raised: #2D3850;
+  --line: #3A4660;
+  --text: #DCE2EC;
+  --muted: #8E9AB0;
+  --accent: #5DB8A5;
+  --accent-ink: #10231F;
+  --amber: #E3B25A;
+  --danger: #E07A6E;
+  --plate: #12161F;
+  --ui: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --book: "Alegreya", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--ui); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.app { display: grid; grid-template-columns: 250px minmax(0, 1fr) 430px; height: 100vh; }
+@media (max-width: 1200px) { .app { grid-template-columns: 220px minmax(0, 1fr) 360px; } }
+@media (max-width: 900px) { .app { grid-template-columns: 1fr; height: auto; } .plate-col { position: static; } }
+
+/* rules list */
+.side { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.side h1 { font: 700 22px/1.1 var(--book); margin: 16px 16px 2px; letter-spacing: .2px; }
+.side .world { color: var(--muted); margin: 0 16px 12px; font-size: 13px; }
+.side .list { overflow: auto; flex: 1; padding: 0 8px 12px; }
+.side h2 { font: 700 13px var(--ui); color: var(--muted); margin: 14px 8px 4px; }
+.rule-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
+.rule-item:hover { background: var(--raised); }
+.rule-item.on, .rule-item.ro.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.rule-item.ro { color: var(--muted); }
+.rule-item .err { color: var(--danger); }
+.side .new { padding: 10px 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
+.side .new select { width: 100%; }
+.side .new input { flex: 1; min-width: 0; }
+.errors { margin: 4px 8px; padding: 8px; border-left: 3px solid var(--danger); background: #3a2a2e; font-size: 12px; overflow-wrap: anywhere; }
+
+/* editor */
+.main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.bar .id { font: 700 20px var(--book); margin-right: auto; overflow-wrap: anywhere; }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; padding: 9px 11px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabs .more-tabs { margin-left: auto; color: var(--accent); }
+.unsaved { color: var(--amber); font-size: 13px; }
+.bar[hidden], .tabs[hidden] { display: none; }
+.unsaved::before { content: "● "; }
+.packs summary { cursor: pointer; list-style: none; }
+.packs summary h3 { display: inline; }
+.packs summary::after { content: " +"; color: var(--muted); }
+.packs[open] summary::after { content: " −"; }
+.rule-item small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.rule-item.on small { color: var(--accent-ink); }
+.errors a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.starts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0 18px; }
+.start { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+.start:hover, .start.on { border-color: var(--accent); }
+.start b { font: 700 16px var(--book); display: block; margin-bottom: 3px; }
+.start span { color: var(--muted); font-size: 13px; }
+.gear-grid { display: grid; grid-template-columns: repeat(2, 76px) 1fr; gap: 8px 10px; align-items: start; }
+.slot { width: 76px; height: 76px; border: 2px solid var(--line); border-radius: 8px; background: var(--bg); cursor: pointer; display: grid; place-items: center; position: relative; padding: 0; }
+.slot.on { border-color: var(--accent); }
+.slot img { width: 48px; height: 48px; image-rendering: pixelated; }
+.slot .sl { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 10.5px; color: var(--muted); }
+.slot .empty-ic { color: var(--line); font-size: 26px; }
+.slot-edit { grid-column: 3; grid-row: 1 / span 3; border-left: 1px solid var(--line); padding-left: 12px; min-height: 160px; }
+.quick { display: inline-flex; gap: 3px; }
+.quick button { border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 1px 8px; font-size: 12px; cursor: pointer; }
+.quick button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.drop-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.sentence { font: 500 21px/1.4 var(--book); margin: 2px 0 18px; padding: 14px 18px; background: var(--panel); border-radius: 10px; border: 1px solid var(--line); }
+.sentence b { color: var(--accent); font-weight: 700; }
+.step { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.step > .q { font: 700 16px var(--book); padding-top: 4px; }
+.step > .q small { display: block; font: 400 12.5px var(--ui); color: var(--muted); margin-top: 2px; }
+@media (max-width: 760px) { .step { grid-template-columns: 1fr; } }
+.choice { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.choice button { border: 1px solid var(--line); background: var(--bg); border-radius: 18px; padding: 5px 13px; cursor: pointer; }
+.choice button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.form { overflow: auto; padding: 14px 18px 60px; flex: 1; }
+.empty { padding: 60px 24px; color: var(--muted); max-width: 520px; }
+.empty b { color: var(--text); }
+
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 14px; padding: 10px 14px 12px; min-width: 0; }
+legend { font: 700 16px var(--book); padding: 0 6px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 8px; }
+.row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; }
+.row > label { padding-top: 6px; color: var(--muted); }
+@media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input[type=text], input[type=number], select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+input[type=number] { width: 86px; }
+input.wide { width: 100%; }
+textarea { width: 100%; font: 12.5px/1.5 var(--mono); resize: vertical; }
+.btn { border: 1px solid var(--line); background: var(--raised); border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.small { padding: 2px 8px; font-size: 12.5px; }
+.btn.bad { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+.check { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+
+/* chips + picker */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 4px; background: var(--bg); position: relative; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--raised); border-radius: 12px; padding: 1px 4px 1px 8px; font-size: 13px; }
+.chip.not { background: #3d2c31; text-decoration: line-through; text-decoration-color: var(--danger); }
+.chip.tag { border: 1px dashed var(--muted); }
+.chip button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 3px; }
+.chip img { width: 16px; height: 16px; image-rendering: pixelated; }
+.chips input { border: 0; background: none; flex: 1; min-width: 120px; padding: 3px 4px; outline: none; }
+.menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; background: var(--raised); border: 1px solid var(--line); border-radius: 6px; max-height: 280px; overflow: auto; margin-top: 2px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.menu div { padding: 5px 9px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.menu div.on, .menu div:hover { background: var(--accent); color: var(--accent-ink); }
+.menu small { color: var(--muted); margin-left: auto; }
+.menu div.on small, .menu div:hover small { color: var(--accent-ink); }
+.menu img { width: 20px; height: 20px; image-rendering: pixelated; }
+
+/* number spec */
+.num { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.num.scaling input { border-color: var(--amber); }
+.num .lbl { color: var(--muted); font-size: 12.5px; }
+
+/* lists */
+.item-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; background: var(--panel); }
+.item-card .head { display: flex; gap: 8px; align-items: center; }
+.item-card .head .grow { flex: 1; min-width: 0; }
+.item-card .more { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.slot-title { font-weight: 700; margin: 10px 0 2px; }
+.summary { border-left: 4px solid var(--accent); background: var(--panel); padding: 8px 14px; margin: 0 0 14px; border-radius: 0 8px 8px 0; }
+.summary p { margin: 4px 0; }
+.summary .warn { color: var(--amber); }
+.swatches { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sw { width: 24px; height: 24px; border-radius: 5px; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+.sw.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+.sw.none { background: var(--bg); color: var(--muted); }
+.swatches input[type=color] { width: 32px; height: 26px; padding: 0 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
+.name-sample { font: 700 18px var(--book); padding: 2px 10px; background: rgba(0,0,0,.45); border-radius: 4px; min-height: 1.2em; }
+.quick-gear { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
+
+table.stats { width: 100%; border-collapse: collapse; }
+table.stats th, table.stats td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.stats th { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+table.stats td.base { color: var(--muted); font-variant-numeric: tabular-nums; }
+table.stats tr.changed td:first-child { color: var(--accent); font-weight: 700; }
+
+/* specimen plate */
+.plate-col { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+.plate { position: relative; margin: 14px; border-radius: 10px; aspect-ratio: 1; background:
+    radial-gradient(ellipse at 50% 62%, #2b3550 0%, #182032 55%, var(--plate) 100%); border: 1px solid var(--line); overflow: hidden; cursor: grab; user-select: none; }
+.plate::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 13%; height: 9%; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); pointer-events: none; }
+.plate img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; z-index: 1; }
+.plate .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--muted); z-index: 2; }
+.plate.busy img { opacity: .55; }
+.plate .msg[hidden] { display: none; }
+.specimen { margin: 0 14px; }
+.specimen .name { font: 700 24px/1.15 var(--book); overflow-wrap: anywhere; }
+.specimen .kind { color: var(--muted); margin-bottom: 8px; }
+.sheet { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 13px; margin: 6px 0 12px; }
+.sheet span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+.sheet .up { color: var(--accent); }
+.sheet .down { color: var(--danger); }
+.plate-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 14px 10px; }
+.plate-tools input[type=range] { width: 120px; }
+.packs { margin: 0 14px 18px; border-top: 1px solid var(--line); padding-top: 10px; }
+.packs h3 { font: 700 16px var(--book); margin: 0 0 4px; }
+.pack { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; }
+.pack small { display: block; color: var(--muted); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--raised); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 10px 16px; border-radius: 8px; max-width: 80vw; z-index: 50; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+.toast.bad { border-left-color: var(--danger); }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: rise .18s ease-out; } @keyframes rise { from { transform: translate(-50%, 8px); opacity: 0; } } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <h1>Mob Rules</h1>
+    <p class="world" id="world">Connecting to the game</p>
+    <div class="list" id="ruleList"></div>
+    <div class="new">
+      <button class="btn go" id="newBtn" style="width:100%">New rule</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="bar" id="bar" hidden>
+      <span class="id" id="ruleTitle"></span>
+      <button class="btn" id="spawnBtn" title="Spawns the preview mob in front of you with this rule">Spawn test mob</button>
+      <span class="unsaved" id="unsaved" hidden>Unsaved changes</span>
+      <button class="btn go" id="saveReloadBtn" title="Saves the rule and applies it in the game">Apply</button>
+      <button class="btn" id="dupBtn">Duplicate</button>
+      <button class="btn bad" id="deleteBtn">Delete</button>
+    </div>
+    <nav class="tabs" id="tabs" hidden></nav>
+    <div class="form" id="form">
+      <div class="empty" id="emptyState">
+        <p><b>Pick a rule on the left, or start a new one.</b></p>
+        <p>Rules are saved into this world's <code>mobrules_editor</code> datapack. Save and reload applies them to mobs that spawn from then on; biome spawn changes apply the next time you join the world.</p>
+        <p><a id="exportLink" class="btn" href="#">Download the datapack as a zip</a></p>
+      </div>
+    </div>
+  </main>
+
+  <section class="plate-col" aria-label="Preview">
+    <div class="plate" id="plate" title="Drag to turn">
+      <img id="plateImg" alt="">
+      <div class="msg" id="plateMsg">The preview mob shows here, rendered by the game with your resource packs.</div>
+    </div>
+    <div class="plate-tools">
+      <button class="btn small" id="rerollBtn" title="Rolls random gear, sizes and numbers again">Roll again</button>
+      <label class="check"><input type="checkbox" id="liveChk" checked> Live</label>
+      <label class="check" title="Start from the gear the mob would normally spawn with"><input type="checkbox" id="vanillaChk"> Vanilla gear</label>
+      <label class="check">Tilt <input type="range" id="pitch" min="-30" max="60" value="8"></label>
+    </div>
+    <div class="specimen">
+      <div class="name" id="specName"></div>
+      <div class="kind" id="specKind"></div>
+      <div class="sheet" id="sheet"></div>
+    </div>
+    <details class="packs">
+      <summary><h3>Resource packs</h3></summary>
+      <p class="hint">Turn packs on or off to see the mob as players with or without them will. The game reloads its resources, which takes a few seconds.</p>
+      <div id="packList"></div>
+      <button class="btn small" id="packApply" disabled>Apply pack changes</button>
+    </details>
+  </section>
+</div>
+
+<script>
+"use strict";
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function api(method, path, body, raw) {
+  const res = await fetch(path + (path.includes("?") ? "&" : "?") + "t=" + T, {
+    method, headers: { "X-Token": T, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : (typeof body === "string" ? body : JSON.stringify(body)),
+  });
+  if (raw) { if (!res.ok) throw new Error((await res.json()).error); return res; }
+  const data = await res.json().catch(() => ({ error: "bad response from the game" }));
+  if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+  return data;
+}
+function toast(msg, bad) {
+  document.querySelectorAll(".toast").forEach((t) => t.remove());
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : "");
+  t.textContent = msg;
+  document.body.append(t);
+  setTimeout(() => t.remove(), bad ? 9000 : 3500);
+}
+
+/* ------------------------------------------------------------------ state */
+let REG = null, packGen = 0;
+let current = null; // { id, rule, readonly }
+let tab = "simple";
+let showAll = false;
+try { showAll = localStorage.getItem("mr_all") === "1"; } catch {}
+let showSpawner = false;
+const TABS = [
+  ["simple", "Simple"], ["quick", "Quick setup"], ["who", "Who and where"], ["spawning", "Spawning"], ["stats", "Stats"], ["gear", "Gear"],
+  ["look", "Name and effects"], ["combat", "Combat"], ["powers", "Powers"], ["behavior", "Behavior"], ["loot", "Loot"], ["json", "JSON"],
+];
+const SLOTS = [["mainhand", "Main hand"], ["offhand", "Off hand"], ["head", "Head"], ["chest", "Chest"], ["legs", "Legs"], ["feet", "Feet"], ["body", "Body (horse or wolf armor)"]];
+
+const R = () => current.rule;
+function get(path, def) {
+  let o = R();
+  for (const k of path) { if (o == null || typeof o !== "object") return def; o = o[k]; }
+  return o === undefined ? def : o;
+}
+function set(path, v) {
+  let o = R();
+  for (let i = 0; i < path.length - 1; i++) {
+    if (o[path[i]] == null || typeof o[path[i]] !== "object") o[path[i]] = {};
+    o = o[path[i]];
+  }
+  const k = path[path.length - 1];
+  if (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) delete o[k]; else o[k] = v;
+  changed();
+}
+/** Drops empty objects/arrays so saved files stay tidy. */
+function clean(v) {
+  if (Array.isArray(v)) return v.map(clean).filter((x) => x !== undefined);
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const [k, x] of Object.entries(v)) {
+      const c = clean(x);
+      if (c === undefined) continue;
+      if (typeof c === "object" && !Array.isArray(c) && !Object.keys(c).length && k !== "_editor") continue;
+      if (Array.isArray(c) && !c.length) continue;
+      out[k] = c;
+    }
+    return out;
+  }
+  return v === "" ? undefined : v;
+}
+let dirty = false;
+function changed() {
+  dirty = true; schedulePreview();
+  if ($("unsaved")) $("unsaved").hidden = false;
+  const old = document.querySelector(".form .summary");
+  if (old && current) old.replaceWith(summaryBox());
+}
+const previewMob = () => get(["_editor", "mob"]) || firstMob() || "minecraft:zombie";
+function firstMob() {
+  const m = get(["conditions", "mobs"]);
+  const list = Array.isArray(m) ? m : m ? [m] : [];
+  return list.find((s) => !s.startsWith("#") && !s.startsWith("!") && !s.endsWith(":*"));
+}
+
+/* ------------------------------------------------------------------ option sources */
+function opts(kind) {
+  if (!REG) return [];
+  const ids = (arr) => arr.map((id) => ({ id }));
+  const mods = (arr) => [...new Set(arr.map((x) => (x.id || x).split(":")[0]))].map((ns) => ({ id: ns + ":*", label: "everything from " + ns }));
+  switch (kind) {
+    case "mob": return REG.mobs.map((m) => ({ id: m.id, label: m.name }));
+    case "mobs": return [...opts("mob"), ...ids(REG.entity_tags), ...mods(REG.mobs)];
+    case "item": return REG.items.map((i) => ({ id: i.id, label: i.name, icon: true }));
+    case "items": return [...opts("item"), ...ids(REG.item_tags)];
+    case "biomes": return [...ids(REG.biomes), ...ids(REG.biome_tags)];
+    case "structures": return [...ids(REG.structures), ...ids(REG.structure_tags)];
+    case "structures_only": return ids(REG.structures);
+    case "dimensions": return ids(REG.dimensions);
+    case "damage": return [...ids(REG.damage_types), ...ids(REG.damage_type_tags)];
+    case "loot": return ids(REG.loot_tables);
+    case "professions": return ids(REG.professions);
+    case "villager_types": return ids(REG.villager_types);
+    case "particles": return ids(REG.particles);
+    case "blocks": return [...REG.blocks.map((b) => ({ id: b.id, label: b.name })), ...ids(REG.block_tags)];
+    case "effect": return REG.effects.map((e) => ({ id: e.id, label: e.name }));
+    case "enchant": return REG.enchantments.map((e) => ({ id: e.id, label: e.name + " (max " + e.max + ")" }));
+    case "enchant_tags": return ids(REG.enchantment_tags);
+    case "providers": return ids(REG.enchantment_providers);
+    case "trim_mat": return ids(REG.trim_materials);
+    case "trim_pat": return ids(REG.trim_patterns);
+    case "spawn_types": return ids(REG.spawn_types);
+    case "categories": return ids(REG.categories);
+    case "attribute": return REG.attributes.map((a) => ({ id: a.id, label: a.name }));
+    case "weather": return ids(["clear", "rain", "thunder"]);
+    case "difficulty": return ids(["peaceful", "easy", "normal", "hard"]);
+    case "events": return ids(REG.events || []);
+    case "moon": return ["full moon", "waning gibbous", "last quarter", "waning crescent", "new moon", "waxing crescent", "first quarter", "waxing gibbous"].map((n, i) => ({ id: String(i), label: n }));
+    default: return [];
+  }
+}
+const iconUrl = (id, size = 32) => `/api/icon?item=${encodeURIComponent(id)}&size=${size}&g=${packGen}&t=${T}`;
+const isItem = (id) => REG && REG._items && REG._items.has(id);
+
+/* ------------------------------------------------------------------ widgets */
+function h(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+
+/** Searchable picker. multi: list of strings (supports !exclude); single: one string. */
+function picker({ kind, value, multi = true, allowNot = true, allowFree = true, placeholder = "Type to search", onChange }) {
+  const wrap = h(`<div class="chips"></div>`);
+  let values = multi ? (Array.isArray(value) ? [...value] : value ? [value] : []) : value ? [value] : [];
+  const input = h(`<input type="text" placeholder="${esc(placeholder)}">`);
+  let menu = null, items = [], sel = 0;
+  const all = opts(kind);
+  const draw = () => {
+    wrap.querySelectorAll(".chip").forEach((c) => c.remove());
+    for (const v of values) {
+      const not = v.startsWith("!"), id = not ? v.slice(1) : v;
+      const c = h(`<span class="chip${not ? " not" : ""}${id.startsWith("#") ? " tag" : ""}" title="${esc(labelOf(all, id))}"></span>`);
+      if (isItem(id)) c.append(h(`<img src="${iconUrl(id)}" alt="" loading="lazy">`));
+      c.append(document.createTextNode(shortName(all, id)));
+      if (multi && allowNot) {
+        const nb = h(`<button title="${not ? "Include" : "Exclude"} this" aria-label="Toggle exclude">${not ? "+" : "−"}</button>`);
+        nb.onclick = () => { values[values.indexOf(v)] = not ? id : "!" + id; emit(); draw(); };
+        c.append(nb);
+      }
+      const x = h(`<button aria-label="Remove">×</button>`);
+      x.onclick = () => { values = values.filter((y) => y !== v); emit(); draw(); };
+      c.append(x);
+      wrap.insertBefore(c, input);
+    }
+    input.placeholder = !multi && values.length ? "" : placeholder;
+    input.style.display = !multi && values.length ? "none" : "";
+  };
+  const emit = () => onChange(multi ? [...values] : values[0]);
+  const close = () => { if (menu) menu.remove(); menu = null; };
+  const add = (id) => {
+    if (!id) return;
+    if (multi) { if (!values.includes(id)) values.push(id); } else values = [id];
+    input.value = ""; close(); emit(); draw(); if (multi) input.focus();
+  };
+  const open = () => {
+    const q = input.value.trim().toLowerCase();
+    items = all.filter((o) => !values.includes(o.id) && (!q || o.id.toLowerCase().includes(q) || (o.label || "").toLowerCase().includes(q))).slice(0, 60);
+    if (allowFree && q && !items.some((o) => o.id === q) && (q.includes(":") || kind === "none")) items.push({ id: input.value.trim(), label: "use as typed" });
+    close();
+    if (!items.length) return;
+    sel = 0;
+    menu = h(`<div class="menu" role="listbox"></div>`);
+    items.forEach((o, i) => {
+      const d = h(`<div role="option">${o.icon ? `<img src="${iconUrl(o.id)}" alt="" loading="lazy">` : ""}<span>${esc(o.label || o.id)}</span><small>${esc(o.label ? o.id : "")}</small></div>`);
+      d.onmousedown = (e) => { e.preventDefault(); add(o.id); };
+      if (i === 0) d.classList.add("on");
+      menu.append(d);
+    });
+    wrap.append(menu);
+  };
+  input.oninput = open;
+  input.onfocus = open;
+  input.onblur = () => setTimeout(close, 120);
+  input.onkeydown = (e) => {
+    if (e.key === "Backspace" && !input.value && values.length) { values.pop(); emit(); draw(); }
+    if (!menu) return;
+    const rows = [...menu.children];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); rows[sel].classList.remove("on");
+      sel = (sel + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length;
+      rows[sel].classList.add("on"); rows[sel].scrollIntoView({ block: "nearest" });
+    }
+    if (e.key === "Enter") { e.preventDefault(); add(items[sel].id); }
+    if (e.key === "Escape") close();
+  };
+  wrap.append(input);
+  wrap.onclick = (e) => { if (e.target === wrap) input.focus(); };
+  draw();
+  return wrap;
+}
+function labelOf(all, id) { const o = all.find((x) => x.id === id); return o && o.label ? o.label + " (" + id + ")" : id; }
+function shortName(all, id) { const o = all.find((x) => x.id === id); return o && o.label && !o.label.startsWith("everything") && !o.label.startsWith("use") ? o.label : id; }
+
+/** Number editor for NumberSpec: fixed, range, or scaling formula. */
+function numSpec(value, onChange, { step = "any", placeholder = "" } = {}) {
+  const wrap = h(`<span class="num"></span>`);
+  const mode = value == null ? "none" : typeof value === "number" ? "fixed" : Array.isArray(value) || (value.min !== undefined && value.base === undefined) ? "range" : "scaling";
+  const sel = h(`<select aria-label="Number type"><option value="none">not set</option><option value="fixed">fixed</option><option value="range">random range</option><option value="scaling">scales</option></select>`);
+  sel.value = mode;
+  wrap.append(sel);
+  const n = (v, lbl, key, title = "") => {
+    const i = h(`<input type="number" step="${step}" value="${v ?? ""}" placeholder="${esc(placeholder)}" title="${esc(title)}">`);
+    if (lbl) wrap.append(h(`<span class="lbl">${lbl}</span>`));
+    wrap.append(i);
+    return i;
+  };
+  const num = (s) => (s === "" || s == null ? undefined : Number(s));
+  if (mode === "fixed") {
+    const i = n(value); i.onchange = () => onChange(num(i.value));
+  } else if (mode === "range") {
+    const lo = Array.isArray(value) ? value[0] : value.min, hi = Array.isArray(value) ? value[1] : value.max;
+    const a = n(lo, "from"), b = n(hi, "to");
+    a.onchange = b.onchange = () => onChange([num(a.value) ?? 0, num(b.value) ?? 0]);
+  } else if (mode === "scaling") {
+    wrap.classList.add("scaling");
+    const v = value || {};
+    const f = { base: n(v.base, "base"), per_day: n(v.per_day, "+ per day", "", "added per in-game day"),
+      per_1000_blocks: n(v.per_1000_blocks, "+ per 1000 blocks", "", "added per 1000 blocks from world spawn"),
+      per_local_difficulty: n(v.per_local_difficulty, "+ per difficulty", "", "added per point of local difficulty (0.75 to 6.75)"),
+      cap: n(v.cap, "cap") };
+    const upd = () => { const o = {}; for (const [k, i] of Object.entries(f)) if (i.value !== "") o[k] = Number(i.value); if (v.spread) o.spread = v.spread; if (v.floor !== undefined) o.floor = v.floor; onChange(o); };
+    Object.values(f).forEach((i) => (i.onchange = upd));
+  }
+  sel.onchange = () => {
+    const cur = typeof value === "number" ? value : 1;
+    const next = { none: undefined, fixed: cur, range: [cur, cur], scaling: { base: cur } }[sel.value];
+    onChange(next);
+    wrap.replaceWith(numSpec(next, onChange, { step, placeholder }));
+  };
+  return wrap;
+}
+function rangeEdit(value, onChange) {
+  const v = value || {};
+  const wrap = h(`<span class="num"></span>`);
+  const a = h(`<input type="number" step="any" value="${v.min ?? ""}" placeholder="any">`), b = h(`<input type="number" step="any" value="${v.max ?? ""}" placeholder="any">`);
+  wrap.append(h(`<span class="lbl">from</span>`), a, h(`<span class="lbl">to</span>`), b);
+  a.onchange = b.onchange = () => {
+    const o = {}; if (a.value !== "") o.min = Number(a.value); if (b.value !== "") o.max = Number(b.value);
+    onChange(Object.keys(o).length ? o : undefined);
+  };
+  return wrap;
+}
+function tri(value, onChange, yes = "yes", no = "no") {
+  const s = h(`<select><option value="">either</option><option value="true">${yes}</option><option value="false">${no}</option></select>`);
+  s.value = value === true ? "true" : value === false ? "false" : "";
+  s.onchange = () => onChange(s.value === "" ? undefined : s.value === "true");
+  return s;
+}
+function chk(value, label, onChange) {
+  const l = h(`<label class="check"><input type="checkbox"${value ? " checked" : ""}> ${esc(label)}</label>`);
+  l.querySelector("input").onchange = (e) => onChange(e.target.checked || undefined);
+  return l;
+}
+function numIn(value, onChange, step = "any", ph = "") {
+  const i = h(`<input type="number" step="${step}" value="${value ?? ""}" placeholder="${esc(ph)}">`);
+  i.onchange = () => onChange(i.value === "" ? undefined : Number(i.value));
+  return i;
+}
+function textIn(value, onChange, ph = "", wide = true) {
+  const i = h(`<input type="text" class="${wide ? "wide" : ""}" value="${esc(value ?? "")}" placeholder="${esc(ph)}">`);
+  i.oninput = () => onChange(i.value.trim() || undefined);
+  return i;
+}
+function row(label, ...controls) {
+  const r = h(`<div class="row"><label>${esc(label)}</label><div class="inline"></div></div>`);
+  r.lastElementChild.append(...controls.filter(Boolean));
+  return r;
+}
+function field(title, hint, ...rows) {
+  const f = h(`<fieldset><legend>${esc(title)}</legend></fieldset>`);
+  if (hint) f.append(h(`<p class="hint">${hint}</p>`));
+  f.append(...rows.filter(Boolean));
+  return f;
+}
+const bind = (path, widget, ...args) => widget(get(path), (v) => set(path, v), ...args);
+
+/* ------------------------------------------------------------------ item editor */
+function itemEditor(value, onChange, { drop = false, weighted = true, onRemove } = {}) {
+  let v = typeof value === "string" ? { item: value } : { ...(value || {}) };
+  const card = h(`<div class="item-card"></div>`);
+  const emit = () => {
+    const c = clean(v);
+    const simple = Object.keys(c).length === 1 && c.item;
+    onChange(simple && !drop ? c.item : c);
+  };
+  const head = h(`<div class="head"></div>`);
+  if (v.empty) {
+    head.append(h(`<span class="grow">Nothing (an empty hand or slot)</span>`));
+  } else {
+    const p = picker({ kind: "item", value: v.item, multi: false, placeholder: "Pick an item", onChange: (id) => { v.item = id; emit(); } });
+    p.classList.add("grow");
+    head.append(p);
+    head.append(h(`<span class="lbl">×</span>`), numIn(v.count, (n) => { v.count = n; emit(); }, "1", "1"));
+  }
+  if (weighted) { head.append(h(`<span class="lbl" title="Higher weight = picked more often">weight</span>`)); head.append(numIn(v.weight, (n) => { v.weight = n; emit(); }, "any", "1")); }
+  const more = h(`<button class="btn small">Details</button>`);
+  head.append(more);
+  if (onRemove) { const rm = h(`<button class="btn small bad" aria-label="Remove">Remove</button>`); rm.onclick = onRemove; head.append(rm); }
+  card.append(head);
+  let open = false, box = null;
+  more.onclick = () => {
+    open = !open;
+    if (box) { box.remove(); box = null; }
+    if (!open) return;
+    box = h(`<div class="more"></div>`);
+    if (drop) {
+      box.append(row("Chance", numIn(v.chance, (n) => { v.chance = n; emit(); }, "0.01", "1 = always")));
+      box.append(row("", chk(v.player_kill_only, "Only when a player kills it", (b) => { v.player_kill_only = b; emit(); })));
+      box.append(row("Per Looting level", numIn(v.per_looting, (n) => { v.per_looting = n; emit(); }, "0.5", "extra items per level")));
+      box.append(row("Only in biomes", picker({ kind: "biomes", value: v.biomes, onChange: (b) => { v.biomes = b; emit(); }, placeholder: "any biome" })));
+    }
+    const en = v.enchant || {};
+    const enMode = !v.enchant ? "none" : en.provider ? "provider" : "random";
+    const ms = h(`<select><option value="none">no random enchanting</option><option value="random">random, by level</option><option value="provider">vanilla mob gear enchanting</option></select>`);
+    ms.value = enMode;
+    const enBox = h(`<span class="inline"></span>`);
+    const drawEn = () => {
+      enBox.innerHTML = "";
+      if (ms.value === "random") {
+        enBox.append(h(`<span class="lbl">levels</span>`), numSpec(en.levels ?? 15, (n) => { v.enchant = { ...v.enchant, levels: n }; emit(); }, { step: "1" }));
+        enBox.append(h(`<span class="lbl">from</span>`), picker({ kind: "enchant_tags", value: en.from || "#minecraft:on_mob_spawn_equipment", multi: false, onChange: (t) => { v.enchant = { ...v.enchant, from: t }; emit(); } }));
+      } else if (ms.value === "provider") {
+        enBox.append(picker({ kind: "providers", value: en.provider || "minecraft:mob_spawn_equipment", multi: false, onChange: (t) => { v.enchant = { provider: t }; emit(); } }));
+      }
+    };
+    ms.onchange = () => {
+      v.enchant = ms.value === "none" ? undefined : ms.value === "provider" ? { provider: "minecraft:mob_spawn_equipment" } : { levels: 15 };
+      Object.assign(en, v.enchant || {}); emit(); drawEn();
+    };
+    drawEn();
+    box.append(row("Enchanting", ms, enBox));
+    // exact enchants
+    const exact = h(`<div></div>`);
+    const drawExact = () => {
+      exact.innerHTML = "";
+      for (const [id, lvl] of Object.entries(v.enchantments || {})) {
+        const line = h(`<div class="inline" style="margin:3px 0"></div>`);
+        line.append(document.createTextNode(shortName(opts("enchant"), id)), numSpec(lvl, (n) => { v.enchantments[id] = n ?? 1; emit(); }, { step: "1" }));
+        const rm = h(`<button class="btn small">Remove</button>`);
+        rm.onclick = () => { delete v.enchantments[id]; emit(); drawExact(); };
+        line.append(rm);
+        exact.append(line);
+      }
+      exact.append(picker({ kind: "enchant", value: [], allowNot: false, placeholder: "Add an exact enchantment", onChange: (ids) => { v.enchantments = v.enchantments || {}; ids.forEach((id) => (v.enchantments[id] = 1)); emit(); drawExact(); } }));
+    };
+    drawExact();
+    box.append(row("Exact enchantments", exact));
+    box.append(row("Durability left", numSpec(v.durability, (n) => { v.durability = n; emit(); }, { step: "0.05", placeholder: "0 to 1" })));
+    const dye = h(`<input type="color" value="${typeof v.dye === "string" ? v.dye : "#a06540"}">`);
+    const dyeOn = chk(!!v.dye, "Dye leather", (b) => { v.dye = b ? dye.value : undefined; emit(); });
+    dye.onchange = () => { v.dye = dye.value; emit(); };
+    box.append(row("Colour", dyeOn, dye));
+    box.append(row("Item name", textIn(v.name, (s) => { v.name = s; emit(); }, "Grave Hood")));
+    box.append(row("", chk(v.unbreakable, "Unbreakable", (b) => { v.unbreakable = b; emit(); })));
+    const tr = v.trim || {};
+    box.append(row("Armor trim",
+      picker({ kind: "trim_mat", value: tr.material, multi: false, placeholder: "material", onChange: (m) => { v.trim = m || tr.pattern ? { ...v.trim, material: m } : undefined; emit(); } }),
+      picker({ kind: "trim_pat", value: tr.pattern, multi: false, placeholder: "pattern", onChange: (p) => { v.trim = p || tr.material ? { ...v.trim, pattern: p } : undefined; emit(); } })));
+    const comp = h(`<textarea rows="2" placeholder='{"minecraft:rarity": "epic"}'>${esc(v.components ? (typeof v.components === "string" ? v.components : JSON.stringify(v.components)) : "")}</textarea>`);
+    comp.onchange = () => { const t = comp.value.trim(); try { v.components = t ? (t.startsWith("{") && !t.includes(":\"") && t.includes(":") && !t.includes("\"") ? t : JSON.parse(t)) : undefined; emit(); } catch { v.components = t; emit(); } };
+    box.append(row("Raw components", comp));
+    card.append(box);
+  };
+  return card;
+}
+/** Weighted list of items. */
+function itemList(path, { drop = false, weighted = true, addLabel = "Add item", allowEmpty = true } = {}) {
+  const box = h(`<div></div>`);
+  const draw = () => {
+    box.innerHTML = "";
+    let list = get(path);
+    list = Array.isArray(list) ? list : list ? [list] : [];
+    list.forEach((it, i) => {
+      box.append(itemEditor(it, (nv) => { list[i] = nv; set(path, list.length === 1 && !drop && !weighted ? list[0] : list); },
+        { drop, weighted, onRemove: () => { list.splice(i, 1); set(path, list); draw(); } }));
+    });
+    const add = h(`<button class="btn small">${esc(addLabel)}</button>`);
+    add.onclick = () => { list.push(drop ? { item: "minecraft:emerald" } : "minecraft:stone"); set(path, list); draw(); };
+    box.append(add);
+    if (allowEmpty && !drop) {
+      const none = h(`<button class="btn small" title="A weighted chance of nothing">Add "nothing"</button>`);
+      none.onclick = () => { list.push({ empty: true, weight: 1 }); set(path, list); draw(); };
+      box.append(document.createTextNode(" "), none);
+    }
+  };
+  draw();
+  return box;
+}
+function effectList(path) {
+  const box = h(`<div></div>`);
+  const draw = () => {
+    box.innerHTML = "";
+    const list = (get(path) || []).map((e) => (typeof e === "string" ? { effect: e } : e));
+    list.forEach((e, i) => {
+      const card = h(`<div class="item-card"></div>`);
+      const upd = () => set(path, list);
+      card.append(row("Effect", picker({ kind: "effect", value: e.effect, multi: false, onChange: (id) => { e.effect = id; upd(); } })));
+      card.append(row("Level", numSpec(e.amplifier, (n) => { e.amplifier = n; upd(); }, { step: "1", placeholder: "0 = level I" })));
+      card.append(row("Duration (ticks)", numSpec(e.duration, (n) => { e.duration = n; upd(); }, { step: "1", placeholder: "-1 = forever" })));
+      const rm = h(`<button class="btn small bad">Remove</button>`);
+      rm.onclick = () => { list.splice(i, 1); set(path, list); draw(); };
+      card.append(row("", chk(e.particles, "Show particles", (b) => { e.particles = b; upd(); }),
+        h(`<span class="lbl">chance</span>`), numIn(e.chance, (n) => { e.chance = n; upd(); }, "0.05", "1"), rm));
+      box.append(card);
+    });
+    const add = h(`<button class="btn small">Add effect</button>`);
+    add.onclick = () => { list.push({ effect: "minecraft:speed" }); set(path, list); draw(); };
+    box.append(add);
+  };
+  draw();
+  return box;
+}
+function damageList(path, otherKey, otherLabel) {
+  const box = h(`<div></div>`);
+  const draw = () => {
+    box.innerHTML = "";
+    const list = get(path) || [];
+    list.forEach((m, i) => {
+      const card = h(`<div class="item-card"></div>`);
+      const upd = () => set(path, list);
+      card.append(row("Damage types", picker({ kind: "damage", value: m.types, onChange: (v) => { m.types = v; upd(); }, placeholder: "any damage" })));
+      card.append(row(otherLabel, picker({ kind: "mobs", value: m[otherKey], onChange: (v) => { m[otherKey] = v; upd(); }, placeholder: "anyone" })));
+      const rm = h(`<button class="btn small bad">Remove</button>`);
+      rm.onclick = () => { list.splice(i, 1); set(path, list); draw(); };
+      card.append(row("Change", h(`<span class="lbl">×</span>`), numIn(m.multiply, (n) => { m.multiply = n; upd(); }, "0.05", "1"),
+        h(`<span class="lbl">then +</span>`), numIn(m.add, (n) => { m.add = n; upd(); }, "any", "0"), rm));
+      box.append(card);
+    });
+    const add = h(`<button class="btn small">Add damage change</button>`);
+    add.onclick = () => { list.push({ multiply: 0.5 }); set(path, list); draw(); };
+    box.append(add);
+  };
+  draw();
+  return box;
+}
+
+/* ------------------------------------------------------------------ shared name editor */
+const MC_COLORS = [["black","#000000"],["dark_blue","#0000AA"],["dark_green","#00AA00"],["dark_aqua","#00AAAA"],["dark_red","#AA0000"],["dark_purple","#AA00AA"],["gold","#FFAA00"],["gray","#AAAAAA"],["dark_gray","#555555"],["blue","#5555FF"],["green","#55FF55"],["aqua","#55FFFF"],["red","#FF5555"],["light_purple","#FF55FF"],["yellow","#FFFF55"],["white","#FFFFFF"]];
+function nameObj() { const n = get(["name"]); return typeof n === "string" ? { text: n } : { ...(n || {}) }; }
+function setName(k, v) {
+  const o = nameObj(); o[k] = v;
+  const c = clean(o);
+  set(["name"], c && c.text ? (Object.keys(c).length === 1 ? c.text : c) : undefined);
+}
+function nameRows() {
+  const nm = nameObj();
+  const sw = h(`<span class="swatches"></span>`);
+  const hexOf = (c) => (MC_COLORS.find((x) => x[0] === c) || [0, c])[1];
+  const mark = () => sw.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.c === (nameObj().color || "")));
+  const none = h(`<button class="sw none" data-c="" title="No colour">×</button>`);
+  none.onclick = () => { setName("color", undefined); mark(); };
+  sw.append(none);
+  for (const [id, hex] of MC_COLORS) {
+    const b = h(`<button class="sw" data-c="${id}" title="${id.replace("_", " ")}" style="background:${hex}"></button>`);
+    b.onclick = () => { setName("color", id); mark(); };
+    sw.append(b);
+  }
+  const custom = h(`<input type="color" title="Any colour" value="${nm.color && nm.color.startsWith("#") ? nm.color : "#B02E26"}">`);
+  custom.oninput = () => { setName("color", custom.value.toUpperCase()); mark(); };
+  sw.append(custom);
+  mark();
+  const sample = h(`<span class="name-sample"></span>`);
+  const drawSample = () => { const o = nameObj(); sample.textContent = (o.text || "").replace("{mob}", (REG.mobs.find((m) => m.id === previewMob()) || {}).name || "Mob"); sample.style.color = o.color ? hexOf(o.color) : "#fff"; sample.style.fontWeight = o.bold ? 700 : 400; sample.style.fontStyle = o.italic ? "italic" : "normal"; };
+  const text = textIn(nm.text, (v) => { setName("text", v); drawSample(); }, "Elite {mob}");
+  sw.addEventListener("click", drawSample); custom.addEventListener("input", drawSample);
+  drawSample();
+  return [row("Name", text), row("Colour", sw), row("Style", chk(nm.bold, "Bold", (b) => { setName("bold", b); drawSample(); }), chk(nm.italic, "Italic", (b) => { setName("italic", b); drawSample(); }), chk(nm.visible, "Always show name tag", (b) => setName("visible", b)), sample)];
+}
+
+/* ------------------------------------------------------------------ plain-language summary */
+function vanillaSpawns(mob) {
+  const list = (REG.natural_spawns || {})[mob] || [];
+  if (!list.length) return "It doesn't spawn naturally in any biome.";
+  const w = list.map((e) => e.weight), mn = Math.min(...list.map((e) => e.min)), mx = Math.max(...list.map((e) => e.max));
+  return `Normally spawns in ${list.length} biome${list.length > 1 ? "s" : ""} (weight ${Math.min(...w)}${Math.max(...w) !== Math.min(...w) ? "–" + Math.max(...w) : ""}, groups of ${mn}${mx !== mn ? "–" + mx : ""}).`;
+}
+function summaryBox() {
+  const mob = previewMob(), m = REG.mobs.find((x) => x.id === mob), name = m ? m.name : mob;
+  const chance = get(["conditions", "chance"]), spn = get(["spawner"]), blk = get(["spawn", "block"]), cap = get(["spawn", "max_nearby"]);
+  const lines = [];
+  if (blk) lines.push(`<b>Blocks</b> ${esc(name)} world spawns where the conditions match.`);
+  else lines.push(`Changes ${chance !== undefined && chance < 1 ? Math.round(chance * 100) + "% of " : "every "}${esc(name)} that spawns where the conditions match. ${esc(vanillaSpawns(mob))}`);
+  if (cap) lines.push(`Stops world spawns once ${cap.count} are within ${cap.radius || 48} blocks.`);
+  if (spn) {
+    const secs = Math.round((spn.interval || 600) / 20), att = spn.attempts || 2, mx = (spn.max_nearby || {}).count ?? 3;
+    lines.push(`<span class="warn">Also adds extra ${esc(name)}s near players: up to ${att} every ${secs}s, stopping at ${mx} nearby${spn.persistent ? ", and they never despawn" : ""}.</span>`);
+  } else if (!blk) lines.push("It doesn't add any extra spawns.");
+  const b = h(`<div class="summary"></div>`);
+  b.innerHTML = lines.map((l) => `<p>${l}</p>`).join("");
+  return b;
+}
+
+/* ------------------------------------------------------------------ simple */
+const pct = (c) => (c === undefined ? 100 : Math.round(c * 100));
+function mobName(id) { const m = REG.mobs.find((x) => x.id === id); return m ? m.name : id; }
+function itemName(id) { const i = REG.items.find((x) => x.id === id); return i ? i.name : id; }
+function sentenceHtml() {
+  const mob = mobName(previewMob());
+  const c = get(["conditions"]) || {};
+  const where = [];
+  if (c.biomes) where.push("in " + [].concat(c.biomes).map((b) => b.replace(/^.*:/, "").replace(/_/g, " ")).join(", "));
+  if (c.structures) where.push("inside " + [].concat(c.structures).map((b) => b.replace(/^.*:/, "").replace(/_/g, " ")).join(", "));
+  if (c.height && c.height.min !== undefined) where.push("above Y " + c.height.min);
+  if (c.height && c.height.max !== undefined) where.push("below Y " + c.height.max);
+  const wh = where.length ? where.join(" and ") : "anywhere";
+  const parts = [];
+  const eq = get(["equipment"]) || {};
+  for (const [slot, label] of SLOTS) { const v = eq[slot]; const id = typeof v === "string" ? v : v && !Array.isArray(v) ? v.item : null; if (id) { const n = itemName(id); parts.push(`${/^[aeiou]/i.test(n) ? "an" : "a"} ${esc(n)}`); } }
+  const at = get(["attributes"]) || {};
+  for (const [k, l] of [["max_health", "health"], ["attack_damage", "damage"], ["movement_speed", "speed"], ["scale", "size"]]) { const o = at[k]; if (o && typeof o.multiply === "number" && o.multiply !== 1) parts.push(`×${o.multiply} ${l}`); }
+  const nm = nameObj(); if (nm.text) parts.push(`the name “${esc(nm.text.replace("{mob}", mob))}”`);
+  const drops = (get(["loot", "drops"]) || []).length; if (drops) parts.push(`${drops} extra drop${drops > 1 ? "s" : ""}`);
+  const ch = c.chance;
+  if (get(["spawn", "block"]) === true) {
+    return ch !== undefined && ch < 1 ? `<b>${pct(ch)}% of ${esc(mob)} spawns</b> ${esc(wh)} are stopped. The rest spawn normally.` : `<b>No ${esc(mob)}s spawn</b> ${esc(wh)}.`;
+  }
+  const who = ch === undefined || ch >= 1 ? `<b>Every ${esc(mob)}</b>` : `<b>${pct(ch)}% of ${esc(mob)}s</b>`;
+  const pl = !(ch === undefined || ch >= 1);
+  let out = parts.length ? `${who} that ${pl ? "spawn" : "spawns"} ${esc(wh)} ${pl ? "get" : "gets"} ${parts.join(", ")}.` : `${who} that ${pl ? "spawn" : "spawns"} ${esc(wh)}: no changes picked yet.`;
+  const SIMPLE = new Set(["conditions", "equipment", "attributes", "name", "loot", "_editor", "_comment", "priority", "group", "heal", "spawn"]);
+  const extra = Object.keys(R()).filter((k) => !SIMPLE.has(k));
+  const condExtra = Object.keys(c).filter((k) => !["mobs", "chance", "biomes", "structures", "height"].includes(k));
+  if (extra.length || condExtra.length) out += ` <span style="font-size:15px;color:var(--muted)">Also: ${esc([...condExtra.map((k) => k.replace(/_/g, " ") + " condition"), ...extra.map((k) => k.replace(/_/g, " "))].join(", "))} (see Show all settings).</span>`;
+  const am = get(["_editor", "amount"]) || {};
+  if (am.mode === "more") out += ` <b>${esc(mob)}s spawn ×${am.factor || 2} as often</b> ${esc(wh)}.`;
+  if (am.mode === "fewer") out += ` <b>${am.percent || 50}% fewer ${esc(mob)}s</b> spawn ${esc(wh)}.`;
+  if (am.mode === "none") out += ` <b>No ${esc(mob)}s spawn</b> ${esc(wh)}.`;
+  return out;
+}
+function step(q, hint, ...content) {
+  const d = h(`<div class="step"><div class="q">${esc(q)}${hint ? `<small>${esc(hint)}</small>` : ""}</div><div></div></div>`);
+  d.lastElementChild.append(...content.filter(Boolean));
+  return d;
+}
+function choice(options, value, onPick) {
+  const c = h(`<div class="choice"></div>`);
+  for (const [v, l] of options) {
+    const b = h(`<button class="${v === value ? "on" : ""}">${esc(l)}</button>`);
+    b.onclick = () => onPick(v);
+    c.append(b);
+  }
+  return c;
+}
+function whereStep(sent, redraw) {
+  const hgt = get(["conditions", "height"]) || {};
+  const between = typeof hgt === "object" && !Array.isArray(hgt) ? hgt.min !== undefined && hgt.max !== undefined : true;
+  const ymode = between ? "between" : hgt.min !== undefined ? "above" : hgt.max !== undefined ? "below" : "any";
+  const ybox = h(`<span class="sub"></span>`);
+  if (ymode === "between") {
+    ybox.append(h(`<span class="hint">Between Y ${esc(Array.isArray(hgt) ? hgt[0] : hgt.min)} and ${esc(Array.isArray(hgt) ? hgt[1] : hgt.max)}; edit it in Show all settings → Who and where.</span>`));
+  } else if (ymode !== "any") {
+    const y = numIn(ymode === "above" ? hgt.min : hgt.max, (n) => set(["conditions", "height"], n === undefined ? undefined : ymode === "above" ? { min: n } : { max: n }), "1", "64");
+    ybox.append(h(`<span class="lbl">Y level</span>`), y);
+  }
+  return step("Where?", "Leave empty for anywhere.",
+    h(`<div class="sub"><span class="lbl" style="min-width:90px">Biomes</span></div>`), picker({ kind: "biomes", value: get(["conditions", "biomes"]), onChange: (v) => { set(["conditions", "biomes"], v); sent.innerHTML = sentenceHtml(); }, placeholder: "any biome" }),
+    h(`<div class="sub"><span class="lbl">Inside a structure</span></div>`), picker({ kind: "structures", value: get(["conditions", "structures"]), onChange: (v) => { set(["conditions", "structures"], v); sent.innerHTML = sentenceHtml(); }, placeholder: "anywhere" }),
+    h(`<div class="sub"><span class="lbl">Height</span></div>`),
+    ymode === "between" ? null : choice([["any", "Any height"], ["above", "Above a Y level"], ["below", "Below a Y level"]], ymode, (v) => { set(["conditions", "height"], v === "any" ? undefined : v === "above" ? { min: 64 } : { max: 0 }); redraw(); }), ybox);
+}
+function tabSimple(f) {
+  const sent = h(`<div class="sentence"></div>`);
+  sent.innerHTML = sentenceHtml();
+  f.append(sent);
+  const redraw = () => renderTab();
+  // 1 mob
+  const mobsList = [].concat(get(["conditions", "mobs"]) || []);
+  if (mobsList.length > 1 || mobsList.some((m) => m.startsWith("#") || m.startsWith("!") || m.endsWith(":*"))) {
+    f.append(step("Which mob?", "This rule uses a list or tags; edit it in Show all settings → Who and where.",
+      h(`<div class="sub">${mobsList.map((m) => `<span class="chip">${esc(m.startsWith("#") || m.endsWith(":*") ? m : (m.startsWith("!") ? "not " : "") + mobName(m.replace("!", "")))}</span>`).join(" ")}</div>`),
+      h(`<div class="sub"><span class="lbl">Preview and test with</span></div>`), picker({ kind: "mob", value: previewMob(), multi: false, onChange: (v) => { if (v) { set(["_editor", "mob"], v); redraw(); } } })));
+  } else {
+    f.append(step("Which mob?", null, picker({ kind: "mob", value: previewMob(), multi: false, onChange: (v) => { if (!v) return; set(["_editor", "mob"], v); set(["conditions", "mobs"], [v]); redraw(); } })));
+  }
+  const blockRule = get(["spawn", "block"]) === true;
+  const setAmount = (v) => {
+    const keepPct = blockRule && get(["conditions", "chance"]) !== undefined ? Math.round(get(["conditions", "chance"]) * 100) : (get(["_editor", "amount", "percent"]) ?? 50);
+    if (v === "fewer" || v === "none") {
+      // a stop-spawns rule: the rule itself blocks; its chance is the share stopped
+      set(["_editor", "amount"], undefined);
+      set(["spawn"], { ...(get(["spawn"]) || {}), block: true });
+      set(["conditions", "chance"], v === "none" ? undefined : keepPct / 100);
+    } else {
+      if (blockRule) { set(["spawn"], undefined); set(["conditions", "chance"], undefined); }
+      set(["_editor", "amount"], v === "same" ? undefined : { mode: "more", factor: get(["_editor", "amount", "factor"]) ?? 2 });
+    }
+    redraw();
+  };
+  if (blockRule) {
+    f.append(whereStep(sent, redraw));
+    const cur = get(["conditions", "chance"]);
+    const mode = cur !== undefined && cur < 1 ? "fewer" : "none";
+    const box = h(`<span class="sub"></span>`);
+    if (mode === "fewer") {
+      const i = numIn(Math.round(cur * 100), (n) => { set(["conditions", "chance"], n === undefined ? 0.5 : Math.min(100, n) / 100); sent.innerHTML = sentenceHtml(); }, "5", "50");
+      box.append(i, h(`<span class="lbl">% of their spawns are stopped</span>`));
+    }
+    f.append(step("How many spawn?", "Compared with normal Minecraft spawning.", choice([["same", "Same as normal"], ["more", "More"], ["fewer", "Fewer"], ["none", "None"]], mode, setAmount), box));
+    f.append(h(`<p class="hint">This rule stops spawns, so there's nothing to change about the mobs. To change the ones that still spawn (gear, stats...), make a separate rule for the same mob.</p>`));
+    return;
+  }
+  // 2 how many
+  const ch = get(["conditions", "chance"]);
+  const some = ch !== undefined && ch < 1;
+  const slider = h(`<span class="sub"><input type="range" min="1" max="99" value="${some ? pct(ch) : 20}"><b>${some ? pct(ch) : 20}%</b><span class="lbl">of them get the changes; the rest stay normal</span></span>`);
+  slider.querySelector("input").oninput = (e) => { slider.querySelector("b").textContent = e.target.value + "%"; set(["conditions", "chance"], Number(e.target.value) / 100); sent.innerHTML = sentenceHtml(); };
+  f.append(step("How many of them?", "The changed ones replace normal spawns, they aren't extra.",
+    choice([["all", "All of them"], ["some", "Some of them"]], some ? "some" : "all", (v) => { set(["conditions", "chance"], v === "all" ? undefined : 0.2); redraw(); }),
+    some ? slider : null));
+  // 3 where
+  f.append(whereStep(sent, redraw));
+  // 4 amount
+  const am = get(["_editor", "amount"]) || { mode: "same" };
+  const amBox = h(`<span class="sub"></span>`);
+  if (am.mode === "more") { amBox.append(h(`<span class="lbl">×</span>`), numIn(am.factor ?? 2, (n) => set(["_editor", "amount", "factor"], n), "0.5", "2"), h(`<span class="lbl">as many as normal (applies after rejoining the world)</span>`)); }
+  if (am.mode === "fewer") { amBox.append(numIn(am.percent ?? 50, (n) => set(["_editor", "amount", "percent"], n), "5", "50"), h(`<span class="lbl">% of their spawns are stopped</span>`)); }
+  f.append(step("How many spawn?", "Compared with normal Minecraft spawning.",
+    choice([["same", "Same as normal"], ["more", "More"], ["fewer", "Fewer"], ["none", "None"]], am.mode, (v) => {
+      const hasChanges = ["equipment", "attributes", "name", "loot", "effects", "combat", "behavior"].some((k) => get([k]) !== undefined);
+      if ((v === "fewer" || v === "none") && !hasChanges) { setAmount(v); return; }
+      set(["_editor", "amount"], v === "same" ? undefined : { mode: v, factor: am.factor, percent: am.percent }); redraw();
+    }), amBox));
+  // 5 changes
+  const gear = h(`<div></div>`);
+  gear.append(gearGrid(() => (sent.innerHTML = sentenceHtml())));
+  const opts2 = h(`<div class="sub"></div>`);
+  const dc = get(["equipment", "drop_chance", "all"]);
+  const dcIn = h(`<input type="number" min="0" max="100" step="1" value="${dc === undefined ? "" : Math.round(Math.min(dc, 1) * 100)}" placeholder="8.5">`);
+  dcIn.oninput = () => set(["equipment", "drop_chance", "all"], dcIn.value === "" ? undefined : Number(dcIn.value) / 100);
+  opts2.append(chk(get(["equipment", "mode"]) === "fill_empty", "Keep their normal gear, only fill empty slots", (b) => set(["equipment", "mode"], b ? "fill_empty" : undefined)),
+    h(`<span class="lbl">chance to drop their gear</span>`), dcIn, h(`<span class="lbl">%</span>`));
+  gear.append(opts2);
+  const stats = h(`<div></div>`);
+  for (const [k, l] of [["max_health", "Health"], ["attack_damage", "Damage"], ["movement_speed", "Speed"], ["scale", "Size"]]) {
+    const key = Object.keys(get(["attributes"]) || {}).find((x) => x === k || x === "minecraft:generic." + k) || k;
+    const o = get(["attributes", key]);
+    const line = h(`<div class="sub"><span class="lbl" style="min-width:70px">${l}</span></div>`);
+    if (o && (Object.keys(o).length !== 1 || typeof o.multiply !== "number")) {
+      line.append(h(`<span class="hint">custom (${esc(Object.keys(o).join(", "))}); edit in Show all settings → Stats</span>`));
+      stats.append(line);
+      continue;
+    }
+    const v = o && typeof o.multiply === "number" ? o.multiply : undefined;
+    const i = h(`<input type="number" step="0.1" min="0" value="${v ?? ""}" placeholder="×1" title="${l} multiplier">`);
+    const q = h(`<span class="quick"></span>`);
+    const mark = () => q.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Number(b.dataset.v) === (i.value === "" ? 1 : Number(i.value))));
+    const apply = () => { set(["attributes", key], i.value === "" || Number(i.value) === 1 ? undefined : { multiply: Number(i.value) }); mark(); sent.innerHTML = sentenceHtml(); };
+    for (const x of [0.5, 1, 1.5, 2, 3]) { const b = h(`<button data-v="${x}">${x === 1 ? "normal" : "×" + x}</button>`); b.onclick = () => { i.value = x === 1 ? "" : x; apply(); }; q.append(b); }
+    i.oninput = apply;
+    line.append(q, h(`<span class="lbl">or ×</span>`), i);
+    mark();
+    stats.append(line);
+  }
+  f.append(step("What's different about them?", "Leave anything blank to keep it normal.",
+    h(`<div class="slot-title">Gear</div>`), gear,
+    h(`<div class="slot-title">Stats</div>`), stats,
+    h(`<div class="slot-title">Name</div>`), ...nameRows(),
+    h(`<div class="slot-title">Extra drops</div>`), simpleDrops()));
+}
+/** Inventory-style slot grid: click a slot, then pick its item. */
+function gearGrid(onChange) {
+  const wrap = h(`<div class="gear-grid"></div>`);
+  const editor = h(`<div class="slot-edit"><p class="hint">Click a slot to choose what they wear or hold. Empty slots keep their normal gear.</p></div>`);
+  const order = [["head", "Head"], ["mainhand", "Main hand"], ["chest", "Chest"], ["offhand", "Off hand"], ["legs", "Legs"], [null], ["feet", "Feet"]];
+  const tiles = {};
+  const idOf = (slot) => { const v = get(["equipment", slot]); const one = Array.isArray(v) ? (v.length === 1 ? v[0] : null) : v; return typeof one === "string" ? one : one && one.item; };
+  const paint = (slot) => {
+    const t = tiles[slot], v = get(["equipment", slot]), id = idOf(slot);
+    t.innerHTML = Array.isArray(v) && v.length > 1 ? `<span class="empty-ic">?</span>` : id ? `<img src="${iconUrl(id, 48)}" alt="">` : `<span class="empty-ic">+</span>`;
+    t.append(h(`<span class="sl">${t.dataset.label}</span>`));
+    t.title = id ? itemName(id) : Array.isArray(v) && v.length > 1 ? "random choice (edit in all settings)" : "keep normal";
+  };
+  const open = (slot, label) => {
+    Object.values(tiles).forEach((x) => x.classList.remove("on")); tiles[slot].classList.add("on");
+    editor.innerHTML = "";
+    const v = get(["equipment", slot]);
+    if (Array.isArray(v) && v.length > 1) { editor.append(h(`<p><b>${label}</b>: a random choice of ${v.length} items. Edit it under Show all settings → Gear.</p>`)); return; }
+    editor.append(h(`<p style="margin:0 0 6px"><b>${label}</b></p>`));
+    editor.append(picker({ kind: "item", value: idOf(slot), multi: false, placeholder: "Search items", onChange: (id) => {
+      const one = Array.isArray(v) ? v[0] : v;
+      set(["equipment", slot], !id ? undefined : one && typeof one === "object" ? { ...one, item: id } : id);
+      paint(slot); onChange(); open(slot, label);
+    } }));
+    const cur = get(["equipment", slot]);
+    if (cur) {
+      const one = Array.isArray(cur) ? cur[0] : cur;
+      editor.append(h(`<div class="sub"></div>`));
+      editor.lastElementChild.append(chk(one && typeof one === "object" && one.enchant, "Enchanted", (b) => {
+        const o = typeof one === "string" ? { item: one } : { ...one };
+        if (b) o.enchant = { provider: "minecraft:mob_spawn_equipment" }; else delete o.enchant;
+        set(["equipment", slot], Object.keys(o).length === 1 ? o.item : o);
+      }));
+      const rm = h(`<button class="btn small">Clear slot</button>`);
+      rm.onclick = () => { set(["equipment", slot], undefined); paint(slot); onChange(); open(slot, label); };
+      editor.lastElementChild.append(rm);
+    }
+  };
+  let r = 1, c = 1;
+  for (const [slot, label] of order) {
+    if (slot) {
+      const t = h(`<button class="slot" data-label="${label}" style="grid-row:${r};grid-column:${c}"></button>`);
+      tiles[slot] = t; t.onclick = () => open(slot, label);
+      wrap.append(t); paint(slot);
+    }
+    c++; if (c > 2) { c = 1; r++; }
+  }
+  wrap.append(editor);
+  return wrap;
+}
+/** Extra drops in plain terms: item, how many, % chance, player kills only. */
+function simpleDrops() {
+  const box = h(`<div></div>`);
+  const path = ["loot", "drops"];
+  const draw = () => {
+    box.innerHTML = "";
+    const list = get(path) || [];
+    list.forEach((d, i) => {
+      const upd = () => set(path, list);
+      const r = h(`<div class="drop-row"></div>`);
+      r.append(picker({ kind: "item", value: d.item, multi: false, onChange: (v) => { d.item = v || d.item; upd(); } }));
+      const cnt = Array.isArray(d.count) ? d.count : [d.count ?? 1, d.count ?? 1];
+      const a = h(`<input type="number" min="1" value="${cnt[0]}">`), b = h(`<input type="number" min="1" value="${cnt[1]}">`);
+      a.oninput = b.oninput = () => { const lo = Number(a.value) || 1, hi = Number(b.value) || lo; d.count = lo === hi ? lo : [lo, hi]; upd(); };
+      const ch = h(`<input type="number" min="1" max="100" value="${Math.round((d.chance ?? 1) * 100)}">`);
+      ch.oninput = () => { d.chance = Math.min(100, Number(ch.value) || 100) / 100; if (d.chance >= 1) delete d.chance; upd(); };
+      const rm = h(`<button class="btn small bad">Remove</button>`); rm.onclick = () => { list.splice(i, 1); set(path, list); draw(); };
+      r.append(h(`<span class="lbl">×</span>`), a, h(`<span class="lbl">to</span>`), b, ch, h(`<span class="lbl">% chance</span>`),
+        chk(d.player_kill_only, "Only when a player kills it", (v) => { d.player_kill_only = v; upd(); }), rm);
+      box.append(r);
+    });
+    const add = h(`<button class="btn small">Add a drop</button>`);
+    add.onclick = () => { list.push({ item: "minecraft:emerald", chance: 0.5 }); set(path, list); draw(); };
+    box.append(add);
+  };
+  draw();
+  return box;
+}
+
+/** Companion rule + biome spawns that make "More / Fewer / None" happen, generated on save. */
+function amountCompanion() {
+  const am = get(["_editor", "amount"]);
+  const mob = previewMob(), c = get(["conditions"]) || {};
+  const where = {}; for (const k of ["biomes", "structures", "height", "dimensions"]) if (c[k]) where[k] = c[k];
+  if (!am || am.mode === "same") return null;
+  if (am.mode === "none") return { _comment: "Made by the Simple tab of " + current.id, conditions: { mobs: [mob], ...where }, spawn: { block: true } };
+  if (am.mode === "fewer") return { _comment: "Made by the Simple tab of " + current.id, conditions: { mobs: [mob], ...where, chance: Math.min(1, (am.percent ?? 50) / 100) }, spawn: { block: true } };
+  // more: extra biome spawn weight, and if the place is limited by height or structure, cancel the extras elsewhere
+  const factor = Math.max(1, am.factor ?? 2);
+  const nat = (REG.natural_spawns || {})[mob] || [];
+  const biomes = c.biomes ? [].concat(c.biomes).filter((b) => !b.startsWith("!")) : [...new Set(nat.map((e) => e.biome))];
+  const avg = nat.length ? nat.reduce((a, e) => a + e.weight, 0) / nat.length : 20;
+  const mn = nat.length ? Math.min(...nat.map((e) => e.min)) : 1, mx = nat.length ? Math.max(...nat.map((e) => e.max)) : 3;
+  current.rule._editor.biome_spawns = { mob, add_biomes: biomes, weight: Math.max(1, Math.round(avg * (factor - 1))), min: mn, max: mx };
+  if (!c.height && !c.structures) return null;
+  const place = {}; if (c.height) place.height = c.height; if (c.structures) place.structures = c.structures;
+  return { _comment: "Made by the Simple tab of " + current.id + ": keeps the extra spawns to the chosen place",
+    conditions: { mobs: [mob], ...(c.biomes ? { biomes: c.biomes } : {}), none_of: [place], chance: +(1 - 1 / factor).toFixed(3) }, spawn: { block: true } };
+}
+
+/* ------------------------------------------------------------------ quick setup */
+const QUICK_STATS = [["minecraft:generic.max_health", "Health"], ["minecraft:generic.attack_damage", "Attack damage"], ["minecraft:generic.armor", "Armor"], ["minecraft:generic.movement_speed", "Speed"], ["minecraft:generic.scale", "Size"], ["minecraft:generic.follow_range", "Follow range"], ["minecraft:generic.knockback_resistance", "Knockback resistance"]];
+function tabQuick(f) {
+  f.append(summaryBox());
+  f.append(field("Mob", "The mob this rule is about. Pick it once here; preview, test spawn and the spawner use it.",
+    row("Mob", picker({ kind: "mob", value: previewMob(), multi: false, onChange: (v) => { if (!v) return; set(["_editor", "mob"], v); const m = get(["conditions", "mobs"]); if (!m || (Array.isArray(m) && m.length <= 1)) set(["conditions", "mobs"], [v]); if (get(["spawner"])) set(["spawner", "mob"], v); renderTab(); } })),
+  ));
+  f.append(field("Name", null, ...nameRows()));
+  const mob = REG.mobs.find((m) => m.id === previewMob());
+  const st = h(`<table class="stats"><thead><tr><th>Stat</th><th>Default</th><th>New value</th></tr></thead><tbody></tbody></table>`);
+  for (const [id, label] of QUICK_STATS) {
+    const base = mob ? mob.attributes[id] : undefined;
+    if (base === undefined && id !== "minecraft:generic.scale") continue;
+    const short = id.replace("minecraft:generic.", "");
+    const key = (get(["attributes"]) && Object.keys(get(["attributes"])).find((k) => k === id || k === short)) || short;
+    const ops = get(["attributes", key]) || {};
+    const op = Object.keys(ops)[0];
+    const val = ops[op];
+    const tr = h(`<tr class="${op ? "changed" : ""}"><td>${label}</td><td class="base">${base !== undefined ? +base.toFixed(3) : 1}</td><td></td></tr>`);
+    const cell = tr.lastElementChild;
+    if (op && (op === "add" || op === "multiply_base" || typeof val !== "number")) {
+      cell.append(h(`<span class="hint">custom (${op}); edit in Stats</span>`));
+    } else {
+      const mode = h(`<select title="Times the default, or an exact value"><option value="multiply">×</option><option value="set">=</option></select>`);
+      mode.value = op || "multiply";
+      const inp = h(`<input type="number" step="any" value="${val ?? ""}" placeholder="${mode.value === "multiply" ? "1" : base ?? ""}">`);
+      const save = () => { const v = inp.value === "" ? undefined : Number(inp.value); set(["attributes", key], v === undefined ? undefined : { [mode.value]: v }); tr.className = v === undefined ? "" : "changed"; };
+      inp.oninput = save; mode.onchange = () => { inp.placeholder = mode.value === "multiply" ? "1" : base ?? ""; save(); };
+      cell.append(h(`<span class="inline"></span>`));
+      cell.firstChild.append(mode, inp);
+    }
+    st.querySelector("tbody").append(tr);
+  }
+  const scal = (formula, label) => { const b = h(`<button class="btn small">${label}</button>`); b.onclick = () => { for (const k of ["max_health", "attack_damage"]) set(["attributes", k], { multiply: formula }); renderTab(); toast("Health and attack damage now scale."); }; return b; };
+  f.append(field("Stats", "× multiplies the default (2 = double health). = sets an exact value. Ranges and scaling live in the Stats tab.", st,
+    row("Scaling presets", scal({ base: 1, per_day: 0.05, cap: 3 }, "Stronger each day"), scal({ base: 1, per_1000_blocks: 0.25, cap: 3 }, "Stronger far from spawn"), scal({ base: 0.8, per_local_difficulty: 0.25, cap: 2.5 }, "Follows local difficulty"))));
+  const gear = h(`<div class="quick-gear"></div>`);
+  for (const [slot, label] of SLOTS.slice(0, 6)) {
+    const path = ["equipment", slot];
+    const cur = get(path);
+    const cell = h(`<div class="qg"><div class="slot-title">${label}</div></div>`);
+    if (Array.isArray(cur) && cur.length > 1) { cell.append(h(`<span class="hint">random choice of ${cur.length}; edit in Gear</span>`)); gear.append(cell); continue; }
+    const one = Array.isArray(cur) ? cur[0] : cur;
+    const id = typeof one === "string" ? one : one && one.item;
+    cell.append(picker({ kind: "item", value: id, multi: false, placeholder: "nothing", onChange: (v) => { if (!v) set(path, undefined); else if (one && typeof one === "object") set(path, { ...one, item: v }); else set(path, v); } }));
+    const ench = one && typeof one === "object" && one.enchant;
+    cell.append(chk(!!ench, "Enchanted", (b) => { const it = get(path); if (!it) return; const o = typeof it === "string" ? { item: it } : { ...(Array.isArray(it) ? it[0] : it) }; if (b) o.enchant = { provider: "minecraft:mob_spawn_equipment" }; else delete o.enchant; set(path, Object.keys(o).length === 1 ? o.item : o); }));
+    gear.append(cell);
+  }
+  f.append(field("Gear", "One item per slot. Weighted random choices, armor sets, trims and dyes are in the Gear tab.", gear,
+    row("Drop chance", numIn(get(["equipment", "drop_chance", "all"]), (n) => set(["equipment", "drop_chance", "all"], n), "0.01", "vanilla 0.085"), h(`<span class="lbl">for all its gear</span>`),
+      (() => { const s = h(`<select><option value="replace">replaces its gear</option><option value="fill_empty">only fills empty slots</option></select>`); s.value = get(["equipment", "mode"]) || "replace"; s.onchange = () => set(["equipment", "mode"], s.value === "replace" ? undefined : s.value); return s; })()),
+  ));
+  f.append(field("Where and how often", "The full list of conditions is in Who and where.",
+    row("Biomes", picker({ kind: "biomes", value: get(["conditions", "biomes"]), onChange: (v) => set(["conditions", "biomes"], v), placeholder: "any biome" })),
+    row("Inside structures", picker({ kind: "structures", value: get(["conditions", "structures"]), onChange: (v) => set(["conditions", "structures"], v), placeholder: "anywhere" })),
+    row("Chance", numIn(get(["conditions", "chance"]), (n) => set(["conditions", "chance"], n), "0.01", "1 = every matching mob"), h(`<span class="lbl">of matching mobs get this rule</span>`)),
+    row("", chk(!!get(["spawner"]), "Also spawn extra ones with its own spawner (settings in Spawning)", (b) => { set(["spawner"], b ? { mob: previewMob(), interval: 600, attempts: 2, max_nearby: { count: 3, radius: 64 } } : undefined); if (b && !get(["conditions", "mobs"])) set(["conditions", "mobs"], [previewMob()]); })),
+  ));
+  const flags = [["glowing", "Glowing"], ["persistent", "Never despawns"], ["silent", "Silent"]];
+  f.append(field("Toughness and extras", null,
+    row("", ...flags.map(([k, l]) => chk(get([k]), l, (b) => set([k], b))), chk(get(["combat", "fire_immune"]), "Fire immune", (b) => set(["combat", "fire_immune"], b)), chk(get(["combat", "sun_immune"]), "Doesn't burn in sun", (b) => set(["combat", "sun_immune"], b)), chk(get(["combat", "no_knockback"]), "No knockback", (b) => set(["combat", "no_knockback"], b))),
+    row("Boss bar", chk(!!get(["boss_bar"]), "Show a boss bar", (b) => set(["boss_bar"], b ? { color: "red" } : undefined))),
+    row("Experience", h(`<span class="lbl">×</span>`), bind(["loot", "xp", "multiply"], numIn, "0.1", "1")),
+  ));
+  f.append(field("Extra drops", null, itemList(["loot", "drops"], { drop: true, weighted: false, addLabel: "Add drop" })));
+}
+
+/* ------------------------------------------------------------------ tabs */
+function renderTab() {
+  const f = $("form");
+  f.innerHTML = "";
+  if (!current) return;
+  if (current.readonly) f.append(h(`<p class="hint">This rule comes from another datapack, so it is read-only here. Use "Copy into editor" in the list to make an editable copy.</p>`));
+  const build = { simple: tabSimple, quick: tabQuick, who: tabWho, spawning: tabSpawning, stats: tabStats, gear: tabGear, look: tabLook, combat: tabCombat, powers: tabPowers, behavior: tabBehavior, loot: tabLoot, json: tabJson }[tab];
+  build(f);
+}
+function tabWho(f) {
+  f.append(field("Rule", "Higher priority runs first. Only the first matching rule in a group applies, so a mob can't be both an elite and a boss.",
+    row("Priority", bind(["priority"], numIn, "1", "0")),
+    row("Group", bind(["group"], textIn, "tier", false), chk(get(["stop"]), "Stop here (no lower rules apply)", (b) => set(["stop"], b))),
+    row("Preview mob", picker({ kind: "mob", value: get(["_editor", "mob"]) || firstMob(), multi: false, placeholder: "mob to preview and test spawn", onChange: (v) => { set(["_editor", "mob"], v); } })),
+  ));
+  f.append(field("Which mobs", "Tags match many mobs at once; use − on a chip to exclude it.",
+    row("Mobs", picker({ kind: "mobs", value: get(["conditions", "mobs"]), onChange: (v) => set(["conditions", "mobs"], v), placeholder: "any mob" })),
+    row("Categories", picker({ kind: "categories", value: get(["conditions", "categories"]), allowNot: false, onChange: (v) => set(["conditions", "categories"], v), placeholder: "any" })),
+    row("Hostile", bind(["conditions", "hostile"], tri, "hostile only", "non-hostile only")),
+    row("Baby", bind(["conditions", "baby"], tri, "babies only", "adults only")),
+    row("Has tags", picker({ kind: "none", value: get(["conditions", "has_tags"]), allowNot: false, onChange: (v) => set(["conditions", "has_tags"], v), placeholder: "scoreboard tags, Enter to add" })),
+    row("Lacks tags", picker({ kind: "none", value: get(["conditions", "lacks_tags"]), allowNot: false, onChange: (v) => set(["conditions", "lacks_tags"], v), placeholder: "scoreboard tags" })),
+  ));
+  f.append(field("Where", null,
+    row("Dimensions", picker({ kind: "dimensions", value: get(["conditions", "dimensions"]), onChange: (v) => set(["conditions", "dimensions"], v), placeholder: "any" })),
+    row("Biomes", picker({ kind: "biomes", value: get(["conditions", "biomes"]), onChange: (v) => set(["conditions", "biomes"], v), placeholder: "any biome" })),
+    row("Inside structures", picker({ kind: "structures", value: get(["conditions", "structures"]), onChange: (v) => set(["conditions", "structures"], v), placeholder: "anywhere" })),
+    row("Height (Y)", bind(["conditions", "height"], rangeEdit)),
+    row("Light level", bind(["conditions", "light"], rangeEdit)),
+    row("Sees the sky", bind(["conditions", "sees_sky"], tri, "outdoors", "underground or covered")),
+    row("Distance from spawn", bind(["conditions", "distance_from_spawn"], rangeEdit)),
+    row("Near blocks", picker({ kind: "blocks", value: get(["conditions", "near_blocks", "blocks"]), onChange: (v) => set(["conditions", "near_blocks"], v && v.length ? { ...(get(["conditions", "near_blocks"]) || {}), blocks: v } : undefined), placeholder: "e.g. #minecraft:logs, #minecraft:leaves" })),
+    get(["conditions", "near_blocks"]) ? row("", h(`<span class="lbl">at least</span>`), bind(["conditions", "near_blocks", "count"], numIn, "1", "1"), h(`<span class="lbl">within</span>`), bind(["conditions", "near_blocks", "radius"], numIn, "1", "4"), h(`<span class="lbl">blocks (max 12)</span>`)) : null,
+  ));
+  f.append(field("When", "Time of day runs 0 to 24000 (13000 to 23000 is night) and wraps past midnight if 'from' is bigger.",
+    row("Time of day", bind(["conditions", "time"], rangeEdit)),
+    row("World day", bind(["conditions", "day"], rangeEdit)),
+    row("Moon phase", picker({ kind: "moon", value: (get(["conditions", "moon_phases"]) || []).map(String), allowNot: false, allowFree: false, onChange: (v) => set(["conditions", "moon_phases"], v.map(Number)), placeholder: "any" })),
+    row("During events", picker({ kind: "events", value: get(["conditions", "events"]), onChange: (v) => set(["conditions", "events"], v), placeholder: "any time (world events like a Blood Moon)" })),
+    row("Weather", picker({ kind: "weather", value: get(["conditions", "weather"]), allowNot: false, allowFree: false, onChange: (v) => set(["conditions", "weather"], v), placeholder: "any" })),
+    row("Difficulty", picker({ kind: "difficulty", value: get(["conditions", "difficulty"]), allowNot: false, allowFree: false, onChange: (v) => set(["conditions", "difficulty"], v), placeholder: "any" })),
+    row("Local difficulty", bind(["conditions", "local_difficulty"], rangeEdit)),
+  ));
+  f.append(field("How", null,
+    row("Spawn types", picker({ kind: "spawn_types", value: get(["conditions", "spawn_types"]), allowNot: false, allowFree: false, onChange: (v) => set(["conditions", "spawn_types"], v), placeholder: "any (natural, spawner, command...)" })),
+    row("Chance", bind(["conditions", "chance"], numIn, "0.01", "1 = every matching mob")),
+  ));
+  if (get(["conditions", "any_of"]) || get(["conditions", "none_of"])) f.append(h(`<p class="hint">This rule also has "any_of" / "none_of" condition groups; edit those in the JSON tab.</p>`));
+}
+function tabSpawning(f) {
+  f.append(summaryBox());
+  f.append(field("Spawn control", "Uses this rule's conditions. Blocking or capping only affects world spawns (natural, spawners, patrols...), never commands or spawn eggs.",
+    row("", chk(get(["spawn", "block"]), "Block these spawns", (b) => set(["spawn", "block"], b))),
+    row("Cap nearby", h(`<span class="lbl">at most</span>`), bind(["spawn", "max_nearby", "count"], numIn, "1", "count"), h(`<span class="lbl">of this mob within</span>`), bind(["spawn", "max_nearby", "radius"], numIn, "1", "48"), h(`<span class="lbl">blocks</span>`)),
+    row("Applies to", picker({ kind: "spawn_types", value: get(["spawn", "types"]), allowNot: false, allowFree: false, onChange: (v) => set(["spawn", "types"], v), placeholder: "all world spawns" })),
+  ));
+  const sp = ["spawner"];
+  const spOn = !!get(sp);
+  if (!spOn && !showSpawner) {
+    const b = h(`<button class="btn small">Show advanced: custom spawner</button>`);
+    b.onclick = () => { showSpawner = true; renderTab(); };
+    f.append(field("Structure spawns", "Adds mobs to a structure's own spawn list, the way fortresses get blazes. Inside the structure these become the spawns for that mob category. Applies after rejoining the world.", structureSpawns()));
+    tabSpawningRest(f);
+    f.append(b);
+    return;
+  }
+  const spBox = field("Custom spawner", "Spawns this mob near players wherever this rule's conditions pass, on any floor level, so it works inside structures like mazes and dungeons. Set the structure, biome, light or nearby blocks in Who and where.",
+    row("", chk(spOn, "Spawn this mob with its own spawner", (b) => { set(sp, b ? { mob: previewMob(), interval: 600, attempts: 2, max_nearby: { count: 3, radius: 64 } } : undefined); if (b && !get(["conditions", "mobs"])) set(["conditions", "mobs"], [previewMob()]); renderTab(); })),
+    spOn ? row("Mob", picker({ kind: "mob", value: get([...sp, "mob"]), multi: false, onChange: (v) => set([...sp, "mob"], v) })) : null,
+    spOn ? row("How often", h(`<span class="lbl">every</span>`), bind([...sp, "interval"], numIn, "1", "200"), h(`<span class="lbl">ticks, try</span>`), bind([...sp, "attempts"], numIn, "1", "4"), h(`<span class="lbl">spots, each with chance</span>`), bind([...sp, "chance"], numIn, "0.05", "1")) : null,
+    spOn ? row("Distance from player", bind([...sp, "distance"], rangeEdit), h(`<span class="lbl">floors searched up and down</span>`), bind([...sp, "vertical_range"], numIn, "1", "24")) : null,
+    spOn ? row("Group size", bind([...sp, "group"], numSpec, { step: "1", placeholder: "1" })) : null,
+    spOn ? row("Cap", h(`<span class="lbl">stop at</span>`), bind([...sp, "max_nearby", "count"], numIn, "1", "6"), h(`<span class="lbl">of this mob within</span>`), bind([...sp, "max_nearby", "radius"], numIn, "1", "64"), h(`<span class="lbl">blocks</span>`)) : null,
+    spOn ? row("Placement", (() => { const s = h(`<select><option value="ground">on the ground</option><option value="water">in water</option><option value="air">in the air</option></select>`); s.value = get([...sp, "placement"]) || "ground"; s.onchange = () => set([...sp, "placement"], s.value === "ground" ? undefined : s.value); return s; })(),
+      chk(get([...sp, "vanilla_checks"]) !== false, "Also obey the mob's normal spawn rules (darkness for monsters)", (b) => set([...sp, "vanilla_checks"], b ? undefined : false))) : null,
+    spOn ? row("", chk(get([...sp, "persistent"]), "Spawner mobs never despawn (they will pile up; use with a low cap)", (b) => set([...sp, "persistent"], b))) : null,
+    spOn && get(["conditions", "mobs"]) && !(get(["conditions", "mobs"]) || []).includes(get([...sp, "mob"])) ? h(`<p class="hint" style="color:var(--danger)">Who and where limits this rule to other mobs, so the spawner's mob would never match. Add it there or clear that list.</p>`) : null,
+  );
+  f.append(spBox);
+  f.append(field("Structure spawns", "Adds mobs to a structure's own spawn list, the way fortresses get blazes. Applies after rejoining the world.", structureSpawns()));
+  tabSpawningRest(f);
+}
+function structureSpawns() {
+  const box = h(`<div></div>`);
+  const path = ["_editor", "structure_spawns"];
+  const draw = () => {
+    box.innerHTML = "";
+    const list = get(path) || [];
+    list.forEach((e, i) => {
+      const upd = () => set(path, list);
+      const rm = h(`<button class="btn small bad">Remove</button>`);
+      rm.onclick = () => { list.splice(i, 1); set(path, list); draw(); };
+      const card = h(`<div class="item-card"></div>`);
+      card.append(row("Structure", picker({ kind: "structures_only", value: e.structure, multi: false, onChange: (v) => { e.structure = v; upd(); } })));
+      card.append(row("Mob", picker({ kind: "mob", value: e.mob, multi: false, onChange: (v) => { e.mob = v; upd(); } }),
+        h(`<span class="lbl">weight</span>`), numIn(e.weight, (n) => { e.weight = n; upd(); }, "1", "20"),
+        h(`<span class="lbl">group</span>`), numIn(e.min, (n) => { e.min = n; upd(); }, "1", "1"), h(`<span class="lbl">to</span>`), numIn(e.max, (n) => { e.max = n; upd(); }, "1", "2"), rm));
+      box.append(card);
+    });
+    const add = h(`<button class="btn small">Add a mob to a structure</button>`);
+    add.onclick = () => { list.push({ mob: previewMob(), weight: 20, min: 1, max: 2 }); set(path, list); draw(); };
+    box.append(add);
+  };
+  draw();
+  return box;
+}
+function tabSpawningRest(f) {
+  const bs = ["_editor", "biome_spawns"];
+  f.append(field("Biome spawning", "Adds this mob to (or removes it from) biomes' natural spawn lists. These changes apply the next time you join the world.",
+    row("Mob", picker({ kind: "mob", value: get([...bs, "mob"]) || previewMob(), multi: false, onChange: (v) => set([...bs, "mob"], v) })),
+    row("Add to biomes", picker({ kind: "biomes", value: get([...bs, "add_biomes"]), allowNot: false, onChange: (v) => { set([...bs, "add_biomes"], v); if (!get([...bs, "mob"])) set([...bs, "mob"], previewMob()); } })),
+    row("Weight and group", h(`<span class="lbl">weight</span>`), bind([...bs, "weight"], numIn, "1", "50"), h(`<span class="lbl">group of</span>`), bind([...bs, "min"], numIn, "1", "1"), h(`<span class="lbl">to</span>`), bind([...bs, "max"], numIn, "1", "4")),
+    row("Remove from biomes", picker({ kind: "biomes", value: get([...bs, "remove_biomes"]), allowNot: false, onChange: (v) => { set([...bs, "remove_biomes"], v); if (!get([...bs, "mob"])) set([...bs, "mob"], previewMob()); } })),
+    h(`<p class="hint">For scale: zombies have weight 95 and spiders 100 in most overworld biomes, in groups of 4.</p>`),
+  ));
+  f.append(field("Riders", null,
+    row("Rider", picker({ kind: "mob", value: get(["rider", "mob"]), multi: false, placeholder: "none", onChange: (v) => set(["rider"], v ? { ...(get(["rider"]) || {}), mob: v } : undefined) }),
+      h(`<span class="lbl">chance</span>`), bind(["rider", "chance"], numIn, "0.05", "1")),
+  ));
+}
+function tabStats(f) {
+  const mob = REG.mobs.find((m) => m.id === previewMob());
+  const attrs = get(["attributes"]) || {};
+  const table = h(`<table class="stats"><thead><tr><th>Stat</th><th>Default</th><th>Change</th></tr></thead><tbody></tbody></table>`);
+  const body = table.querySelector("tbody");
+  const shown = new Set(Object.keys(mob ? mob.attributes : {}));
+  const keyFor = (id) => Object.keys(attrs).find((k) => k === id || "minecraft:generic." + k === id || "minecraft:" + k === id) || id;
+  Object.keys(attrs).forEach((k) => { const full = REG.attributes.find((a) => a.id === k || a.id === "minecraft:generic." + k || a.id === "minecraft:" + k); if (full) shown.add(full.id); });
+  const rows = [...shown].map((id) => REG.attributes.find((a) => a.id === id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+  for (const a of rows) {
+    const key = keyFor(a.id);
+    const ops = attrs[key] || {};
+    const op = Object.keys(ops)[0] || "";
+    const tr = h(`<tr class="${op ? "changed" : ""}"><td title="${esc(a.id)}">${esc(a.name)}</td><td class="base">${mob && mob.attributes[a.id] !== undefined ? +mob.attributes[a.id].toFixed(3) : "-"}</td><td></td></tr>`);
+    const sel = h(`<select><option value="">no change</option><option value="set">set to</option><option value="add">add</option><option value="multiply">multiply by</option><option value="multiply_base">multiply base by</option></select>`);
+    sel.value = op;
+    const cell = tr.lastElementChild;
+    const inline = h(`<span class="inline"></span>`);
+    inline.append(sel);
+    if (op) inline.append(numSpec(ops[op], (n) => { set(["attributes", key], n === undefined ? undefined : { [op]: n }); }));
+    sel.onchange = () => {
+      const cur = ops[op];
+      set(["attributes", key], sel.value ? { [sel.value]: cur ?? (sel.value.startsWith("multiply") ? 1.5 : sel.value === "set" ? (mob && mob.attributes[a.id]) || 1 : 1) } : undefined);
+      renderTab();
+    };
+    cell.append(inline);
+    body.append(tr);
+  }
+  f.append(field("Stats of " + (mob ? mob.name : previewMob()), "Change any stat. 'Scales' values grow with the world day, distance from spawn and local difficulty. Size is the Scale stat.",
+    table,
+    row("Add another stat", picker({ kind: "attribute", value: [], allowNot: false, allowFree: false, placeholder: "e.g. step height, gravity, a mod's stat", onChange: (ids) => { ids.forEach((id) => set(["attributes", id], { add: 0 })); renderTab(); } })),
+    row("", chk(get(["heal"]) !== false, "Start at full health after health changes", (b) => set(["heal"], b ? undefined : false))),
+  ));
+}
+function tabGear(f) {
+  f.append(field("How gear is given", null,
+    row("Mode", (() => { const s = h(`<select><option value="replace">replace what it has</option><option value="fill_empty">only fill empty slots</option></select>`); s.value = get(["equipment", "mode"]) || "replace"; s.onchange = () => set(["equipment", "mode"], s.value === "replace" ? undefined : s.value); return s; })()),
+    row("", chk(get(["equipment", "clear"]), "Remove all gear first", (b) => set(["equipment", "clear"], b)), chk(get(["equipment", "can_pick_up_loot"]), "Can pick up items", (b) => set(["equipment", "can_pick_up_loot"], b))),
+  ));
+  const sets = h(`<div></div>`);
+  const drawSets = () => {
+    sets.innerHTML = "";
+    const list = get(["equipment", "sets"]) || [];
+    list.forEach((s, i) => {
+      const card = h(`<div class="item-card"></div>`);
+      const rm = h(`<button class="btn small bad">Remove set</button>`);
+      rm.onclick = () => { list.splice(i, 1); set(["equipment", "sets"], list); drawSets(); };
+      card.append(row("Set " + (i + 1), h(`<span class="lbl">weight</span>`), numIn(s.weight, (n) => { s.weight = n; set(["equipment", "sets"], list); }, "any", "1"), rm));
+      for (const [slot, label] of SLOTS.slice(2, 6)) {
+        card.append(h(`<div class="slot-title">${label}</div>`));
+        card.append(s[slot] ? itemEditor(s[slot], (nv) => { s[slot] = nv; set(["equipment", "sets"], list); }, { weighted: false, onRemove: () => { delete s[slot]; set(["equipment", "sets"], list); drawSets(); } })
+          : (() => { const b = h(`<button class="btn small">Add ${label.toLowerCase()} item</button>`); b.onclick = () => { s[slot] = "minecraft:iron_" + { head: "helmet", chest: "chestplate", legs: "leggings", feet: "boots" }[slot]; set(["equipment", "sets"], list); drawSets(); }; return b; })());
+      }
+      sets.append(card);
+    });
+    const add = h(`<button class="btn small">Add armor set</button>`);
+    add.onclick = () => { list.push({ weight: 1 }); set(["equipment", "sets"], list); drawSets(); };
+    sets.append(add);
+  };
+  drawSets();
+  f.append(field("Armor sets", "A set is a whole matching outfit picked as one (by weight). Slots a set fills are not rolled again below.", sets));
+  for (const [slot, label] of SLOTS) {
+    f.append(field(label, slot === "mainhand" ? "Several items are picked between at random by weight. Add \"nothing\" for a chance of an empty hand." : null, itemList(["equipment", slot])));
+  }
+  const dc = h(`<div></div>`);
+  dc.append(row("All slots", numIn(get(["equipment", "drop_chance", "all"]), (n) => set(["equipment", "drop_chance", "all"], n), "0.01", "vanilla 0.085")));
+  for (const [slot, label] of SLOTS) dc.append(row(label, numIn(get(["equipment", "drop_chance", slot]), (n) => set(["equipment", "drop_chance", slot], n), "0.01", "")));
+  f.append(field("Drop chances", "0 to 1. Below 1 only drops when a player hit it recently (vanilla rule); 2 always drops, undamaged.", dc));
+}
+function tabLook(f) {
+  f.append(field("Name", "{mob} becomes the mob's own name, e.g. 'Elite {mob}'.", ...nameRows()));
+  const flags = [["glowing", "Glowing outline"], ["silent", "Silent"], ["persistent", "Never despawns"], ["no_gravity", "No gravity"], ["invulnerable", "Invulnerable"], ["left_handed", "Left handed"], ["no_ai", "No AI (statue)"]];
+  f.append(field("Flags", null, row("", ...flags.map(([k, l]) => chk(get([k]), l, (b) => set([k], b)))), row("Baby", bind(["baby"], tri, "make baby", "make adult"))));
+  f.append(field("Effects", "Duration -1 lasts forever.", effectList(["effects"])));
+  f.append(field("Variant", "Only applies to mobs that have that option (villagers, sheep, slimes, zombies...).",
+    row("Baby chance", bind(["variant", "baby_chance"], numIn, "0.05", "0 to 1"), chk(get(["variant", "can_break_doors"]), "Breaks doors (zombies)", (b) => set(["variant", "can_break_doors"], b))),
+    row("Villager", picker({ kind: "professions", value: get(["variant", "villager_profession"]), multi: false, placeholder: "profession", onChange: (v) => set(["variant", "villager_profession"], v) }),
+      picker({ kind: "villager_types", value: get(["variant", "villager_type"]), multi: false, placeholder: "biome style", onChange: (v) => set(["variant", "villager_type"], v) })),
+    row("Sheep colour", (() => { const s = h(`<select><option value="">natural</option>${["white","orange","magenta","light_blue","yellow","lime","pink","gray","light_gray","cyan","purple","blue","brown","green","red","black"].map((c) => `<option>${c}</option>`).join("")}</select>`); s.value = get(["variant", "sheep_color"]) || ""; s.onchange = () => set(["variant", "sheep_color"], s.value || undefined); return s; })(),
+      h(`<span class="lbl">slime size</span>`), bind(["variant", "slime_size"], numIn, "1", "1, 2 or 4")),
+  ));
+  f.append(field("Particle aura", "Seen by every player, no client mod needed.",
+    row("Particles", picker({ kind: "particles", value: get(["particles", "type"]), multi: false, placeholder: "none", onChange: (v) => set(["particles"], v ? { ...(get(["particles"]) || {}), type: v } : undefined) }),
+      h(`<span class="lbl">count</span>`), bind(["particles", "count"], numIn, "1", "2"), h(`<span class="lbl">every</span>`), bind(["particles", "interval"], numIn, "1", "4"), h(`<span class="lbl">ticks</span>`)),
+  ));
+  f.append(field("Boss bar", null,
+    row("", chk(!!get(["boss_bar"]), "Show a boss bar to nearby players", (b) => { set(["boss_bar"], b ? { color: "red" } : undefined); renderTab(); })),
+    get(["boss_bar"]) ? row("Look", (() => { const s = h(`<select>${["pink", "blue", "red", "green", "yellow", "purple", "white"].map((c) => `<option>${c}</option>`).join("")}</select>`); s.value = get(["boss_bar", "color"]) || "red"; s.onchange = () => set(["boss_bar", "color"], s.value); return s; })(),
+      (() => { const s = h(`<select><option value="progress">solid</option><option value="notched_6">6 notches</option><option value="notched_10">10 notches</option><option value="notched_12">12 notches</option><option value="notched_20">20 notches</option></select>`); s.value = get(["boss_bar", "style"]) || "progress"; s.onchange = () => set(["boss_bar", "style"], s.value); return s; })(),
+      h(`<span class="lbl">range</span>`), bind(["boss_bar", "range"], numIn, "1", "40"), chk(get(["boss_bar", "darken_sky"]), "Darken sky", (b) => set(["boss_bar", "darken_sky"], b))) : null,
+  ));
+  f.append(field("Advanced", null,
+    row("Add tags", picker({ kind: "none", value: get(["add_tags"]), allowNot: false, onChange: (v) => set(["add_tags"], v), placeholder: "scoreboard tags, Enter to add" })),
+    row("Raw NBT", bind(["nbt"], textIn, "{CanBreakDoors:1b}")),
+  ));
+}
+function tabCombat(f) {
+  f.append(field("Damage it takes", "Multiply by 0 for immunity. Damage types include tags like #minecraft:is_fire, #minecraft:is_projectile, #minecraft:is_explosion.", damageList(["combat", "damage_taken"], "attackers", "From attackers")));
+  f.append(field("Damage it deals", null, damageList(["combat", "damage_dealt"], "targets", "To targets")));
+  f.append(field("When it hits", null,
+    effectList(["combat", "on_hit", "effects"]),
+    row("Set target on fire", bind(["combat", "on_hit", "ignite_seconds"], numIn, "1", "seconds")),
+    row("Lifesteal", bind(["combat", "on_hit", "lifesteal"], numIn, "0.05", "0.25 = heals a quarter of damage dealt")),
+  ));
+  f.append(field("When it's hurt", null,
+    row("Thorns damage", bind(["combat", "on_hurt", "thorns"], numIn, "0.5", "melee only")),
+    effectList(["combat", "on_hurt", "attacker_effects"]),
+    row("Calls for help", picker({ kind: "mob", value: get(["combat", "on_hurt", "reinforcements", 0, "mob"]), multi: false, placeholder: "same mob", onChange: (v) => set(["combat", "on_hurt", "reinforcements"], [{ ...(get(["combat", "on_hurt", "reinforcements", 0]) || { count: 1, chance: 0.3 }), mob: v }]) }),
+      h(`<span class="lbl">count</span>`), numSpec(get(["combat", "on_hurt", "reinforcements", 0, "count"]), (n) => set(["combat", "on_hurt", "reinforcements"], n === undefined ? undefined : [{ ...(get(["combat", "on_hurt", "reinforcements", 0]) || {}), count: n }]), { step: "1" }),
+      h(`<span class="lbl">chance</span>`), bind(["combat", "on_hurt", "reinforcements", 0, "chance"], numIn, "0.05", "0.3"),
+      h(`<span class="lbl">cooldown</span>`), bind(["combat", "on_hurt", "reinforce_cooldown"], numIn, "20", "200 ticks")),
+    row("Enrage below", bind(["combat", "on_hurt", "enrage", "below"], numIn, "0.05", "0.5 = half health"), h(`<span class="lbl">then gets the effects below</span>`)),
+    get(["combat", "on_hurt", "enrage"]) ? effectList(["combat", "on_hurt", "enrage", "effects"]) : null,
+    row("Teleport away", h(`<span class="lbl">chance per hit</span>`), bind(["combat", "on_hurt", "teleport", "chance"], numIn, "0.05", "0.2"), h(`<span class="lbl">range</span>`), bind(["combat", "on_hurt", "teleport", "range"], numIn, "1", "8")),
+  ));
+  f.append(field("When it dies", null,
+    row("Explode", h(`<span class="lbl">power</span>`), bind(["on_death", "explode", "power"], numIn, "0.5", "creeper = 3"), chk(get(["on_death", "explode", "fire"]), "Fire", (b) => set(["on_death", "explode", "fire"], b)), chk(get(["on_death", "explode", "break_blocks"]), "Breaks blocks", (b) => set(["on_death", "explode", "break_blocks"], b))),
+    row("", chk(get(["on_death", "lightning"]), "Lightning strike (cosmetic)", (b) => set(["on_death", "lightning"], b))),
+    row("Splits into", picker({ kind: "mob", value: get(["on_death", "summon", 0, "mob"]), multi: false, placeholder: "nothing", onChange: (v) => set(["on_death", "summon"], v ? [{ ...(get(["on_death", "summon", 0]) || { count: 2 }), mob: v }] : undefined) }),
+      h(`<span class="lbl">count</span>`), numSpec(get(["on_death", "summon", 0, "count"]), (n) => get(["on_death", "summon", 0]) && set(["on_death", "summon", 0, "count"], n), { step: "1" }),
+      h(`<span class="lbl">chance</span>`), bind(["on_death", "summon", 0, "chance"], numIn, "0.05", "1")),
+  ));
+  f.append(field("Toughness", null,
+    row("Regeneration", h(`<span class="lbl">heal</span>`), bind(["combat", "regen", "amount"], numIn, "0.5", "1"), h(`<span class="lbl">every</span>`), bind(["combat", "regen", "interval"], numIn, "1", "40"), h(`<span class="lbl">ticks</span>`)),
+    row("", chk(get(["combat", "fire_immune"]), "Fire and lava immune", (b) => set(["combat", "fire_immune"], b)), chk(get(["combat", "sun_immune"]), "Doesn't burn in daylight", (b) => set(["combat", "sun_immune"], b)), chk(get(["combat", "no_knockback"]), "No knockback", (b) => set(["combat", "no_knockback"], b))),
+  ));
+}
+const ABILITY_TYPES = [["leap", "Leap at the target"], ["charge", "Charge (hits on contact)"], ["pull", "Pull the target in"], ["blink", "Teleport behind the target"],
+  ["web", "Trap the target (cobweb or any block)"], ["summon", "Call minions"], ["slam", "Ground slam (knocks back nearby players)"], ["shield", "Shield (immune for a while)"], ["buff", "Effects only"]];
+function tabPowers(f) {
+  const box = h(`<div></div>`);
+  const draw = () => {
+    box.innerHTML = "";
+    const list = (get(["abilities"]) || []).map((a) => (typeof a === "string" ? { type: a } : a));
+    const upd = () => set(["abilities"], list);
+    list.forEach((a, i) => {
+      const card = h(`<div class="item-card"></div>`);
+      const t = h(`<select>${ABILITY_TYPES.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("")}</select>`);
+      t.value = a.type || "leap";
+      t.onchange = () => { a.type = t.value; if (t.value === "summon" && !a.mobs) a.mobs = [{ count: 2 }]; upd(); draw(); };
+      const rm = h(`<button class="btn small bad">Remove</button>`);
+      rm.onclick = () => { list.splice(i, 1); upd(); draw(); };
+      card.append(row("Ability", t, rm));
+      card.append(row("Every", numIn(a.cooldown, (n) => { a.cooldown = n; upd(); }, "10", "100"), h(`<span class="lbl">ticks, wind-up</span>`),
+        numIn(a.windup, (n) => { a.windup = n; upd(); }, "1", "10"), h(`<span class="lbl">ticks, chance</span>`), numIn(a.chance, (n) => { a.chance = n; upd(); }, "0.05", "1")));
+      card.append(row("Target distance", rangeEdit(a.range, (r) => { a.range = r; upd(); }),
+        h(`<span class="lbl">only below health</span>`), numIn(a.health_below, (n) => { a.health_below = n; upd(); }, "0.05", "1 = always")));
+      const ty = a.type || "leap";
+      if (["leap", "charge", "pull", "slam"].includes(ty)) card.append(row("Strength", numIn(a.strength, (n) => { a.strength = n; upd(); }, "0.1", "1"),
+        ty === "slam" || ty === "charge" ? h(`<span class="lbl">damage</span>`) : null, ty === "slam" || ty === "charge" ? numIn(a.damage, (n) => { a.damage = n; upd(); }, "0.5", "its attack damage") : null,
+        ty === "slam" ? h(`<span class="lbl">radius</span>`) : null, ty === "slam" ? numIn(a.radius, (n) => { a.radius = n; upd(); }, "0.5", "4") : null));
+      if (ty === "summon") card.append(row("Minion", picker({ kind: "mob", value: a.mobs?.[0]?.mob, multi: false, placeholder: "same mob", onChange: (v) => { a.mobs = [{ ...(a.mobs?.[0] || { count: 2 }), mob: v }]; upd(); } }),
+        h(`<span class="lbl">count</span>`), numSpec(a.mobs?.[0]?.count, (n) => { a.mobs = [{ ...(a.mobs?.[0] || {}), count: n }]; upd(); }, { step: "1" })));
+      if (ty === "web") card.append(row("Block", picker({ kind: "blocks", value: a.block, multi: false, placeholder: "minecraft:cobweb", onChange: (v) => { a.block = v; upd(); } }),
+        h(`<span class="lbl">removed after</span>`), numIn(a.duration, (n) => { a.duration = n; upd(); }, "20", "100"), h(`<span class="lbl">ticks</span>`)));
+      if (ty === "shield") card.append(row("Lasts", numIn(a.duration, (n) => { a.duration = n; upd(); }, "10", "60"), h(`<span class="lbl">ticks</span>`)));
+      card.append(row("Says", textIn(a.message, (v) => { a.message = v; upd(); }, "optional chat line, {target} = their name")));
+      card.append(h(`<div class="sub"><span class="lbl">Effects on itself</span></div>`), effectList(["abilities", i, "self_effects"]),
+        h(`<div class="sub"><span class="lbl">Effects on the target</span></div>`), effectList(["abilities", i, "target_effects"]));
+      box.append(card);
+    });
+    const add = h(`<button class="btn small">Add ability</button>`);
+    add.onclick = () => { list.push({ type: "leap", cooldown: 100 }); upd(); draw(); };
+    box.append(add);
+  };
+  draw();
+  f.append(field("Abilities", "Moves it uses on its target. Before each one it stops, faces the target and shows particles for the wind-up, so players can dodge.", box));
+
+  const isAffix = !!get(["affix"]);
+  f.append(field("Affixes", "Affixes are random modifiers like Vampiric or Swift. Make one rule per affix (tick the first box), then tick the second box on the rule that should roll them.",
+    row("", chk(isAffix, "This rule is an affix (only applied when rolled)", (b) => { set(["affix"], b ? { name: "Vampiric", pool: "elite" } : undefined); renderTab(); })),
+    isAffix ? row("Affix name", bind(["affix", "name"], textIn, "Vampiric"), h(`<span class="lbl">weight</span>`), bind(["affix", "weight"], numIn, "0.5", "1"), h(`<span class="lbl">pool</span>`), bind(["affix", "pool"], textIn, "default", false)) : null,
+    row("", chk(!!get(["affixes"]), "Roll affixes onto this mob", (b) => { set(["affixes"], b ? { pool: "elite", count: [1, 3] } : undefined); renderTab(); })),
+    get(["affixes"]) ? row("Roll", numSpec(get(["affixes", "count"]), (n) => set(["affixes", "count"], n), { step: "1" }), h(`<span class="lbl">from pool</span>`), bind(["affixes", "pool"], textIn, "default", false),
+      h(`<span class="lbl">name colour</span>`), bind(["affixes", "color"], textIn, "yellow", false)) : null));
+
+  const nem = get(["nemesis"]);
+  const nemObj = () => (typeof get(["nemesis"]) === "object" ? { ...get(["nemesis"]) } : {});
+  const setNem = (k, v) => { const o = nemObj(); if (v === undefined) delete o[k]; else o[k] = v; set(["nemesis"], Object.keys(o).length ? o : true); };
+  f.append(field("Nemesis", "If it kills a player it gets a name and a title, grows stronger with every kill, stops despawning and taunts its victims. Killing it pays out once per level.",
+    row("", chk(!!nem, "Becomes a nemesis when it kills a player", (b) => { set(["nemesis"], b ? true : undefined); renderTab(); })),
+    nem ? row("Names", textIn((nemObj().names || []).join(", "), (v) => setNem("names", v ? v.split(",").map((x) => x.trim()).filter(Boolean) : undefined), "built-in list (Grak, Ushnar...)")) : null,
+    nem ? row("Title", textIn(nemObj().title, (v) => setNem("title", v), "{name} the {victim}-Slayer")) : null,
+    nem ? row("Max level", numIn(nemObj().max_level, (n) => setNem("max_level", n), "1", "10"), h(`<span class="lbl">glows from level</span>`), numIn(nemObj().glow_at, (n) => setNem("glow_at", n), "1", "never"),
+      h(`<span class="lbl">announce to</span>`), (() => { const s2 = h(`<select><option value="all">everyone</option><option value="victim">the victim</option><option value="none">nobody</option></select>`); s2.value = nemObj().announce || "all"; s2.onchange = () => setNem("announce", s2.value === "all" ? undefined : s2.value); return s2; })()) : null,
+    nem ? h(`<div class="sub"><span class="lbl">Reward (rolled once per level)</span></div>`) : null,
+    nem ? itemList(["nemesis", "reward"], { drop: true, weighted: false, addLabel: "Add reward" }) : null));
+}
+function tabBehavior(f) {
+  f.append(field("Behavior", null,
+    row("Breaks blocks", bind(["behavior", "griefing"], tri, "yes", "never (creeper holes, endermen...)")),
+    row("Hunts", picker({ kind: "mobs", value: get(["behavior", "hostile_to"]), onChange: (v) => set(["behavior", "hostile_to"], v), placeholder: "e.g. minecraft:player" })),
+    row("Hit damage", bind(["behavior", "attack_damage"], numIn, "0.5", "2 (for mobs that normally can't attack)")),
+    row("Never targets", picker({ kind: "mobs", value: get(["behavior", "never_target"]), onChange: (v) => set(["behavior", "never_target"], v), placeholder: "nobody" })),
+    row("Ignores players wearing", picker({ kind: "items", value: get(["behavior", "ignore_players_wearing"]), onChange: (v) => set(["behavior", "ignore_players_wearing"], v), placeholder: "any armor piece" })),
+    row("", chk(get(["behavior", "angry_on_spawn"]), "Attacks the nearest player as soon as it spawns", (b) => set(["behavior", "angry_on_spawn"], b))),
+  ));
+}
+function tabLoot(f) {
+  f.append(field("Drops", null,
+    row("", chk(get(["loot", "replace"]), "Replace its normal drops", (b) => set(["loot", "replace"], b))),
+    itemList(["loot", "drops"], { drop: true, weighted: false, addLabel: "Add drop" }),
+  ));
+  f.append(field("Extra loot tables", "Each table is rolled once more when it dies, as if it were that mob or chest.",
+    picker({ kind: "loot", value: get(["loot", "tables"]), allowNot: false, onChange: (v) => set(["loot", "tables"], v), placeholder: "e.g. minecraft:entities/wither_skeleton" })));
+  f.append(field("Experience", "Only drops when a player kills it, as in vanilla.",
+    row("Experience", h(`<span class="lbl">×</span>`), bind(["loot", "xp", "multiply"], numIn, "0.1", "1"), h(`<span class="lbl">then +</span>`), bind(["loot", "xp", "add"], numIn, "1", "0"))));
+}
+function tabJson(f) {
+  const ta = h(`<textarea rows="30" spellcheck="false"></textarea>`);
+  ta.value = JSON.stringify(clean(R()), null, 2);
+  const apply = h(`<button class="btn go">Use this JSON</button>`), check = h(`<button class="btn">Check for errors</button>`);
+  apply.onclick = () => { try { current.rule = JSON.parse(ta.value); changed(); toast("JSON applied."); } catch (e) { toast("That isn't valid JSON: " + e.message, true); } };
+  check.onclick = async () => { try { await api("POST", "/api/validate", ta.value); toast("No errors found."); } catch (e) { toast(e.message, true); } };
+  f.append(field("Rule JSON", "Everything the form edits, plus anything it doesn't (like any_of groups). Keys starting with _ are notes for the editor and ignored by the game.", ta, h(`<div class="inline" style="margin-top:8px"></div>`)));
+  f.lastElementChild.lastElementChild.append(apply, check);
+}
+
+/* ------------------------------------------------------------------ rule list */
+const NS = "pack";
+function slug(name) { return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "rule"; }
+function prettyId(id) {
+  const [ns, path] = id.includes(":") ? id.split(/:(.*)/s) : ["", id];
+  const p = path.replace(/__amount$/, " (spawn amount)").split("/").pop().replace(/_/g, " ");
+  return { name: p.charAt(0).toUpperCase() + p.slice(1), ns };
+}
+function lev(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+/** Turns a loader error into a sentence a person can act on. */
+function friendlyError(e) {
+  const m = e.match(/^([a-z0-9_.-]+:[a-z0-9_./-]+?)([.:].*?)?: (.*)$/s);
+  const id = m ? m[1] : null, where = m && m[2] ? m[2].replace(/^[.:]/, "").replace(/\[(\d+)\]/g, " #$1").replace(/\./g, " → ") : "", msg = m ? m[3] : e;
+  const name = id ? prettyId(id).name : "A rule";
+  const uk = msg.match(/unknown key '([^']+)' \(allowed: ([^)]*)\)/);
+  let text;
+  if (uk) {
+    const best = uk[2].split(", ").map((k) => [k, lev(uk[1], k)]).sort((a, b) => a[1] - b[1])[0];
+    text = `<b>${esc(name)}</b>: “${esc(uk[1])}”${where ? " in " + esc(where) : ""} isn't a setting.` + (best && best[1] <= 3 ? ` Did you mean “${esc(best[0])}”?` : "");
+  } else {
+    text = `<b>${esc(name)}</b>${where ? " (" + esc(where) + ")" : ""}: ${esc(msg.replace(/^unknown (item|mob|effect|enchantment) /, "there's no $1 called "))}`;
+  }
+  return { id, html: text };
+}
+async function loadRules() {
+  const data = await api("GET", "/api/rules");
+  const list = $("ruleList");
+  list.innerHTML = "";
+  const errIds = new Set(data.errors.map((e) => e.split(/[.:]\s?/).slice(0, 2).join(":").split(".")[0]));
+  const section = (title, ids, ro) => {
+    if (!ids.length) return;
+    list.append(h(`<h2>${esc(title)}</h2>`));
+    for (const id of ids) {
+      const failed = data.errors.some((e) => e.startsWith(id + ":") || e.startsWith(id + "."));
+      const pi = prettyId(id);
+      const b = h(`<button class="rule-item${ro ? " ro" : ""}${current && current.id === id ? " on" : ""}" title="${esc(id)}">${esc(pi.name)}${failed ? ' <span class="err">has a problem</span>' : ""}<small>${esc(id)}</small></button>`);
+      b.onclick = () => openRule(id);
+      list.append(b);
+    }
+  };
+  section("Made here", data.editor, false);
+  const groups = {};
+  for (const e of data.on_disk || []) (groups[e.where] = groups[e.where] || []).push(e.id);
+  for (const [where, ids] of Object.entries(groups)) section(where, ids, false);
+  section("Read-only (zips and mods)", data.other, true);
+  if (!data.editor.length && !data.other.length && !(data.on_disk || []).length) list.append(h(`<p class="hint" style="padding:0 8px">No rules yet. Type an id below and press New rule.</p>`));
+  for (const e of data.errors) {
+    const fe = friendlyError(e);
+    const box = h(`<div class="errors">${fe.html} </div>`);
+    if (fe.id) { const a = h(`<a>Open it</a>`); a.onclick = () => { tab = "json"; showAll = true; openRule(fe.id); }; box.append(a); }
+    list.append(box);
+  }
+}
+async function openRule(id) {
+  if (dirty && current && !confirm("Discard unsaved changes to " + current.id + "?")) return;
+  try {
+    const data = await api("GET", "/api/rule?id=" + encodeURIComponent(id));
+    current = { id, rule: data.rule, readonly: data.readonly, where: data.where };
+    dirty = false;
+    showEditor();
+    loadRules();
+    preview();
+  } catch (e) { toast(e.message, true); }
+}
+function showEditor() {
+  $("bar").hidden = false;
+  $("tabs").hidden = false;
+  $("ruleTitle").innerHTML = esc(get(["_editor", "title"]) || prettyId(current.id).name) + ` <small style="color:var(--muted);font:400 13px var(--ui)">${esc(current.id)}${current.readonly ? ", read-only" : current.where && current.where !== "editor pack" ? ", saves to " + esc(current.where) : ""}</small>`;
+  $("unsaved").hidden = !dirty;
+  $("deleteBtn").hidden = current.readonly;
+  $("saveReloadBtn").textContent = current.readonly ? "Copy into editor" : "Apply";
+  const tabs = $("tabs");
+  tabs.innerHTML = "";
+  if (!showAll && tab !== "simple") tab = "simple";
+  for (const [k, l] of TABS) {
+    if (!showAll && k !== "simple") continue;
+    const b = h(`<button class="${k === tab ? "on" : ""}">${esc(l)}</button>`);
+    b.onclick = () => { tab = k; showEditor(); };
+    tabs.append(b);
+  }
+  const tog = h(`<button class="more-tabs">${showAll ? "Hide extra settings" : "Show all settings"}</button>`);
+  tog.onclick = () => { showAll = !showAll; try { localStorage.setItem("mr_all", showAll ? "1" : "0"); } catch {} showEditor(); };
+  tabs.append(tog);
+  renderTab();
+}
+async function save(reload) {
+  if (!current) return;
+  if (current.readonly) {
+    const id = prompt("Id for your editable copy:", current.id.replace(/^[^:]+:/, "pack:"));
+    if (!id) return;
+    current = { id, rule: current.rule, readonly: false };
+  }
+  try {
+    await api("POST", "/api/validate", clean(R()));
+  } catch (e) { toast("Not saved: " + e.message, true); return; }
+  try {
+    const comp = current.rule._editor && current.rule._editor.amount ? amountCompanion() : null;
+    await api("PUT", "/api/rule?id=" + encodeURIComponent(current.id), clean(R()));
+    const compId = current.id + "__amount";
+    if (comp) await api("PUT", "/api/rule?id=" + encodeURIComponent(compId), comp);
+    else await api("DELETE", "/api/rule?id=" + encodeURIComponent(compId)).catch(() => {});
+    dirty = false;
+    if (reload) {
+      toast("Applying...");
+      const r = await api("POST", "/api/reload");
+      toast(r.errors.length ? "Applied, but " + r.errors.length + " rule(s) have a problem; see the list." : "Applied. New spawns use it now.", r.errors.length > 0);
+    } else toast("Saved " + current.id + ".");
+    showEditor();
+    loadRules();
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ------------------------------------------------------------------ preview */
+let yaw = -30, pvTimer = null, pvBusy = false, pvAgain = false;
+function schedulePreview() { if (!$("liveChk").checked) return; clearTimeout(pvTimer); pvTimer = setTimeout(preview, 450); }
+async function preview() {
+  if (!current || !REG) return;
+  if (pvBusy) { pvAgain = true; return; }
+  pvBusy = true;
+  $("plate").classList.add("busy");
+  const mob = previewMob();
+  try {
+    const q = `/api/preview?mob=${encodeURIComponent(mob)}&yaw=${yaw}&pitch=${$("pitch").value}&w=512&h=512&vanilla=${$("vanillaChk").checked ? 1 : 0}&id=${encodeURIComponent(current.id)}`;
+    const data = await api("POST", q, clean(R()));
+    $("plateImg").src = "data:image/png;base64," + data.png;
+    $("plateMsg").hidden = true;
+    drawSheet(mob, data);
+  } catch (e) {
+    $("plateMsg").hidden = false;
+    $("plateMsg").textContent = e.message;
+  } finally {
+    pvBusy = false;
+    $("plate").classList.remove("busy");
+    if (pvAgain) { pvAgain = false; preview(); }
+  }
+}
+function drawSheet(mobId, data) {
+  const mob = REG.mobs.find((m) => m.id === mobId);
+  $("specName").textContent = data.name;
+  $("specKind").textContent = mob ? mob.name + " (" + mobId + ")" : mobId;
+  const sheet = $("sheet");
+  sheet.innerHTML = "";
+  const keys = ["minecraft:generic.max_health", "minecraft:generic.armor", "minecraft:generic.armor_toughness", "minecraft:generic.attack_damage", "minecraft:generic.movement_speed", "minecraft:generic.scale", "minecraft:generic.follow_range", "minecraft:generic.knockback_resistance", "minecraft:generic.step_height"];
+  for (const k of keys) {
+    const v = data.attributes[k];
+    if (v === undefined) continue;
+    const base = mob ? mob.attributes[k] : undefined;
+    const a = REG.attributes.find((x) => x.id === k);
+    const cls = base === undefined || Math.abs(v - base) < 1e-6 ? "" : v > base ? "up" : "down";
+    sheet.append(h(`<span>${esc(a ? a.name : k)}</span>`), h(`<span class="${cls}" title="${base !== undefined ? "default " + +base.toFixed(3) : ""}">${+v.toFixed(2)}</span>`));
+  }
+}
+let drag = null;
+$("plate").addEventListener("pointerdown", (e) => { drag = { x: e.clientX, yaw }; $("plate").setPointerCapture(e.pointerId); $("plate").style.cursor = "grabbing"; });
+$("plate").addEventListener("pointermove", (e) => { if (!drag) return; yaw = drag.yaw - (e.clientX - drag.x) * 0.8; });
+$("plate").addEventListener("pointerup", () => { if (!drag) return; drag = null; $("plate").style.cursor = ""; preview(); });
+$("pitch").onchange = preview;
+$("vanillaChk").onchange = preview;
+$("rerollBtn").onclick = preview;
+
+/* ------------------------------------------------------------------ resource packs */
+let packState = [];
+async function loadPacks() {
+  try {
+    const data = await api("GET", "/api/resourcepacks");
+    packGen = data.generation;
+    packState = data.packs.sort((a, b) => (b.selected - a.selected) || (b.order - a.order));
+    const list = $("packList");
+    list.innerHTML = "";
+    for (const p of packState) {
+      const row = h(`<label class="pack"><input type="checkbox"${p.selected ? " checked" : ""}${p.required ? " disabled" : ""}><span>${esc(p.title)}<small>${esc(p.description)}</small></span></label>`);
+      row.querySelector("input").onchange = (e) => { p.want = e.target.checked; $("packApply").disabled = false; };
+      list.append(row);
+    }
+    $("packApply").disabled = true;
+  } catch (e) { $("packList").textContent = e.message; }
+}
+$("packApply").onclick = async () => {
+  const keep = packState.filter((p) => p.selected && p.want !== false).sort((a, b) => a.order - b.order).map((p) => p.id);
+  const added = packState.filter((p) => !p.selected && p.want).map((p) => p.id);
+  $("packApply").disabled = true;
+  $("packApply").textContent = "Reloading game resources...";
+  try {
+    await api("POST", "/api/resourcepacks", { selected: [...keep, ...added] });
+    toast("Resource packs applied.");
+    await loadPacks();
+    preview();
+  } catch (e) { toast(e.message, true); }
+  $("packApply").textContent = "Apply pack changes";
+};
+
+/* ------------------------------------------------------------------ presets */
+function presetRule(kind) {
+  const base = { conditions: { mobs: ["minecraft:zombie"] }, _editor: { mob: "minecraft:zombie" } };
+  const P = {
+    blank: {},
+    shields: { conditions: { mobs: ["minecraft:zombie"], chance: 0.2 }, equipment: { mode: "fill_empty", offhand: "minecraft:shield" } },
+    fewer_creepers: { conditions: { mobs: ["minecraft:creeper"] }, _editor: { mob: "minecraft:creeper", amount: { mode: "fewer", percent: 50 } } },
+    fortress_skeletons: { conditions: { mobs: ["minecraft:skeleton"], structures: ["minecraft:fortress"] }, _editor: { mob: "minecraft:skeleton" },
+      equipment: { head: "minecraft:chainmail_helmet", chest: "minecraft:chainmail_chestplate", legs: "minecraft:chainmail_leggings", feet: "minecraft:chainmail_boots", mainhand: "minecraft:iron_sword" } },
+    elite: { priority: 10, group: "tier", conditions: { mobs: ["minecraft:zombie"], chance: 0.1 }, name: { text: "Elite {mob}", color: "gold" },
+      attributes: { max_health: { multiply: 2 }, attack_damage: { multiply: 1.5 }, scale: { multiply: 1.15 } },
+      equipment: { head: { item: "minecraft:iron_helmet", enchant: { provider: "minecraft:mob_spawn_equipment" } }, mainhand: "minecraft:iron_sword", drop_chance: { all: 0.05 } },
+      loot: { xp: { multiply: 3 } } },
+    miniboss: { priority: 20, group: "tier", conditions: { mobs: ["minecraft:zombie"], chance: 0.02 }, name: { text: "{mob} Champion", color: "light_purple", visible: true }, persistent: true,
+      attributes: { max_health: { multiply: 4 }, attack_damage: { multiply: 2 }, scale: { multiply: 1.35 }, knockback_resistance: { add: 0.6 } },
+      combat: { regen: { amount: 1, interval: 40 }, on_hurt: { enrage: { below: 0.4, effects: ["minecraft:speed", "minecraft:strength"] } } },
+      particles: { type: "minecraft:witch", count: 2, interval: 6 }, loot: { xp: { multiply: 6 }, drops: [{ item: "minecraft:diamond", chance: 0.5, player_kill_only: true }] } },
+    boss: { priority: 30, group: "tier", conditions: { mobs: ["minecraft:zombie"], chance: 0.01 }, name: { text: "{mob} Lord", color: "dark_red", bold: true, visible: true }, persistent: true, glowing: true,
+      attributes: { max_health: { set: 200 }, attack_damage: { multiply: 2.5 }, scale: { multiply: 1.6 }, follow_range: { set: 48 } },
+      combat: { no_knockback: true, fire_immune: true, regen: { amount: 2, interval: 40 }, on_hurt: { reinforcements: [{ count: [1, 2], chance: 0.5 }], reinforce_cooldown: 300, teleport: { chance: 0.1, range: 8 } } },
+      boss_bar: { color: "red", style: "notched_10" }, on_death: { lightning: true }, particles: { type: "minecraft:soul_fire_flame" }, loot: { xp: { add: 200 } } },
+    hostile: { conditions: { mobs: ["minecraft:cow"] }, _editor: { mob: "minecraft:cow" }, behavior: { hostile_to: ["minecraft:player"], attack_damage: 3 }, attributes: { movement_speed: { multiply: 1.3 } } },
+    swarm: { conditions: { mobs: ["minecraft:silverfish"] }, _editor: { mob: "minecraft:silverfish" }, attributes: { max_health: { multiply: 0.5 } },
+      spawner: { mob: "minecraft:silverfish", interval: 400, attempts: 1, group: [2, 4], max_nearby: { count: 8, radius: 48 } }, on_death: { summon: [{ mob: "minecraft:silverfish", count: 1, chance: 0.3 }] } },
+  };
+  const out = Object.assign(base, JSON.parse(JSON.stringify(P[kind] || {})));
+  if (out.conditions && out.conditions.mobs) out._editor = { ...out._editor, mob: out._editor && out._editor.mob || out.conditions.mobs[0] };
+  return out;
+}
+
+/* ------------------------------------------------------------------ wiring */
+const STARTS = [
+  ["blank", "Start from scratch", "Pick a mob and change anything.", "My rule"],
+  ["shields", "Zombies with shields", "Some zombies spawn holding a shield.", "Shield zombies"],
+  ["fewer_creepers", "Fewer creepers", "Stops half of creeper spawns.", "Fewer creepers"],
+  ["fortress_skeletons", "Fortress skeletons in chainmail", "Skeletons in nether fortresses get chainmail and swords.", "Fortress skeletons"],
+  ["elite", "Elite mobs", "A rare tougher version with better gear and XP.", "Elite zombies"],
+  ["miniboss", "Mini-boss", "Very rare, big, regenerates, enrages when hurt.", "Zombie champion"],
+  ["boss", "Boss", "1 in 100 becomes a boss with a boss bar.", "Zombie lord"],
+  ["hostile", "Passive turned hostile", "Cows (or any animal) attack players.", "Angry cows"],
+];
+function startPanel() {
+  if (dirty && current && !confirm("Discard unsaved changes to " + current.id + "?")) return;
+  current = null; dirty = false;
+  $("bar").hidden = true; $("tabs").hidden = true;
+  const f = $("form"); f.innerHTML = "";
+  f.append(h(`<h2 style="font:700 22px var(--book);margin:4px 0 2px">What do you want to make?</h2>`), h(`<p class="hint">Pick a starting point. You can change everything afterwards.</p>`));
+  const grid = h(`<div class="starts"></div>`);
+  let pick = "blank";
+  const nameIn = h(`<input type="text" class="wide" placeholder="Name for this rule">`);
+  nameIn.value = STARTS[0][3];
+  STARTS.forEach(([k, t, d, def], i) => {
+    const c = h(`<button class="start${i === 0 ? " on" : ""}"><b>${esc(t)}</b><span>${esc(d)}</span></button>`);
+    c.onclick = () => { grid.querySelectorAll(".start").forEach((x) => x.classList.remove("on")); c.classList.add("on"); pick = k; nameIn.value = def; nameIn.focus(); nameIn.select(); };
+    grid.append(c);
+  });
+  const go = h(`<button class="btn go">Create rule</button>`);
+  const create = () => {
+    const name = nameIn.value.trim() || "My rule";
+    let id = NS + ":" + slug(name), n = 2;
+    const taken = new Set([...document.querySelectorAll(".rule-item small")].map((x) => x.textContent));
+    while (taken.has(id)) id = NS + ":" + slug(name) + "_" + n++;
+    current = { id, rule: presetRule(pick), readonly: false };
+    current.rule._editor = { ...(current.rule._editor || {}), title: name };
+    dirty = true; tab = "simple"; showEditor(); preview();
+  };
+  go.onclick = create;
+  nameIn.onkeydown = (e) => { if (e.key === "Enter") create(); };
+  const row1 = h(`<div class="sub"></div>`); row1.append(nameIn, go);
+  const ex = h(`<p class="hint" style="margin-top:28px">Rules are saved into this world's datapacks (or kubejs/data). <a href="#">Download the editor's rules as a datapack zip</a> to use them on a server.</p>`);
+  ex.querySelector("a").onclick = exportZip;
+  f.append(grid, row1, ex);
+  setTimeout(() => nameIn.focus(), 50);
+}
+$("newBtn").onclick = startPanel;
+$("saveReloadBtn").onclick = () => save(true);
+$("dupBtn").onclick = () => {
+  if (!current) return;
+  const id = prompt("Id for the copy:", current.id.replace(/^[^:]+:/, (m) => (current.readonly ? "pack:" : m)) + "_copy");
+  if (!id) return;
+  current = { id: id.toLowerCase(), rule: JSON.parse(JSON.stringify(current.rule)), readonly: false };
+  dirty = true; showEditor(); preview(); toast("Copied. Save to keep it.");
+};
+$("deleteBtn").onclick = async () => {
+  if (!current || !confirm("Delete " + current.id + " and its biome spawn files?")) return;
+  try { await api("DELETE", "/api/rule?id=" + encodeURIComponent(current.id)); toast("Deleted " + current.id + ". Reload to apply."); current = null; dirty = false; location.reload(); } catch (e) { toast(e.message, true); }
+};
+$("spawnBtn").onclick = async () => {
+  try { const r = await api("POST", `/api/spawn?mob=${encodeURIComponent(previewMob())}&id=${encodeURIComponent(current.id)}&vanilla=${$("vanillaChk").checked ? 1 : 0}`, clean(R())); toast("Spawned " + r.spawned + " in front of you."); } catch (e) { toast(e.message, true); }
+};
+async function exportZip(e) {
+  if (e) e.preventDefault();
+  try {
+    const res = await api("GET", "/api/export", undefined, true);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await res.blob());
+    a.download = "mobrules_editor.zip";
+    a.click();
+  } catch (err) { toast(err.message, true); }
+}
+window.addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
+
+(async function init() {
+  try {
+    const st = await api("GET", "/api/status");
+    if (!st.singleplayer) { $("world").textContent = "Open a singleplayer world, then run /mobrules_editor again."; return; }
+    $("world").textContent = "World: " + st.world;
+    REG = await api("GET", "/api/registries");
+    REG._items = new Set(REG.items.map((i) => i.id));
+    await loadRules();
+    loadPacks();
+    startPanel();
+  } catch (e) {
+    $("world").textContent = e.message;
+  }
+})();
+</script>
+</body>
+</html>

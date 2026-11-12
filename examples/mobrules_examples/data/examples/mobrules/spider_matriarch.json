@@ -1,0 +1,12 @@
+{ "_comment": "A rare boss spider that webs, leaps and pulls.",
+  "conditions": { "mobs": ["minecraft:spider"], "chance": 0.02, "height": { "max": 40 } },
+  "group": "tier", "priority": 5,
+  "name": { "text": "Spider Matriarch", "color": "dark_purple" },
+  "attributes": { "max_health": { "multiply": 6 }, "scale": { "set": 2.2 }, "attack_damage": { "multiply": 2 } },
+  "boss_bar": { "color": "purple" },
+  "abilities": [
+    { "type": "web", "cooldown": 120, "range": [3, 14], "duration": 80 },
+    { "type": "leap", "cooldown": 90, "strength": 1.2 },
+    { "type": "pull", "cooldown": 160, "message": "Come closer, {target}..." },
+    { "type": "summon", "cooldown": 400, "health_below": 0.5, "mobs": [ { "mob": "minecraft:cave_spider", "count": [2, 3] } ] } ],
+  "loot": { "drops": [ { "item": "minecraft:cobweb", "count": [4, 8] }, { "item": "minecraft:diamond", "count": [1, 2], "player_kill_only": true } ], "xp": { "add": 100 } } }

@@ -1,0 +1,47 @@
+{
+  "_comment": "15% of zombies and skeletons that spawn naturally at night or underground become elites. They get stronger every in-game day.",
+  "priority": 10,
+  "group": "tier",
+  "conditions": {
+    "mobs": ["minecraft:zombie", "minecraft:husk", "#minecraft:skeletons"],
+    "spawn_types": ["natural", "spawner", "command"],
+    "any_of": [ { "time": { "min": 13000, "max": 23000 } }, { "sees_sky": false } ],
+    "chance": 0.15
+  },
+  "attributes": {
+    "max_health": { "multiply": { "base": 1.5, "per_day": 0.05, "cap": 4 } },
+    "attack_damage": { "add": { "base": 1, "per_local_difficulty": 0.5, "spread": [0, 1] } },
+    "scale": { "multiply": [1.1, 1.25] },
+    "knockback_resistance": { "add": 0.4 }
+  },
+  "equipment": {
+    "mode": "replace",
+    "sets": [
+      { "weight": 3,
+        "head":  { "item": "minecraft:iron_helmet", "trim": { "material": "minecraft:redstone", "pattern": "minecraft:sentry" } },
+        "chest": { "item": "minecraft:iron_chestplate", "enchant": { "levels": [5, 15] } },
+        "legs":  "minecraft:iron_leggings",
+        "feet":  "minecraft:iron_boots" },
+      { "weight": 1,
+        "head":  { "item": "minecraft:leather_helmet", "dye": "#3C1F1F", "name": "Grave Hood" },
+        "chest": { "item": "minecraft:chainmail_chestplate", "durability": [0.3, 0.7] } }
+    ],
+    "mainhand": [
+      { "item": "minecraft:iron_sword", "weight": 3, "enchant": { "provider": "minecraft:mob_spawn_equipment" } },
+      { "item": "minecraft:iron_axe", "weight": 1 },
+      { "empty": true, "weight": 1 }
+    ],
+    "drop_chance": { "all": 0.02 }
+  },
+  "name": { "text": "Elite {mob}", "color": "gold" },
+  "add_tags": ["mobrules_elite"],
+  "combat": {
+    "damage_taken": [ { "types": ["#minecraft:is_projectile"], "multiply": 0.75 } ],
+    "on_hit": { "effects": [ { "effect": "minecraft:slowness", "duration": 60, "chance": 0.3 } ] },
+    "sun_immune": true
+  },
+  "loot": {
+    "drops": [ { "item": "minecraft:emerald", "count": [1, 2], "chance": 0.5, "player_kill_only": true } ],
+    "xp": { "multiply": 3 }
+  }
+}

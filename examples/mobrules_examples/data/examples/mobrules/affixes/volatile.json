@@ -1,0 +1,3 @@
+{ "affix": { "name": "Volatile", "weight": 2, "pool": "elite" },
+  "on_death": { "explode": { "power": 2, "fire": false, "break_blocks": false } },
+  "particles": { "type": "minecraft:smoke", "count": 1, "interval": 4 } }

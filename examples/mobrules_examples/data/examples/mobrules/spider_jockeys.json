@@ -1,0 +1,7 @@
+{
+  "_comment": "Night spiders sometimes carry a skeleton; all spiders climb up steps and stay out of the fire.",
+  "conditions": { "mobs": "minecraft:spider", "time": { "min": 13000, "max": 23000 } },
+  "rider": { "mob": "minecraft:skeleton", "chance": 0.2 },
+  "attributes": { "step_height": { "add": 0.5 } },
+  "combat": { "fire_immune": true }
+}

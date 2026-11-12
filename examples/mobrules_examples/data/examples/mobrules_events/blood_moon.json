@@ -1,0 +1,6 @@
+{ "name": "Blood Moon", "color": "dark_red",
+  "trigger": { "moon_phases": [0], "chance": 0.33, "min_day": 3 },
+  "starts": "dusk", "lasts": "night",
+  "start_message": "The Blood Moon rises. The dead grow restless...",
+  "end_message": "The Blood Moon sets.",
+  "sound": "minecraft:entity.wither.spawn", "boss_bar": "red" }

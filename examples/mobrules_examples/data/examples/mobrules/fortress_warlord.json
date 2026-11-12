@@ -1,0 +1,31 @@
+{
+  "_comment": "Rarely, a wither skeleton in a fortress is a boss with a boss bar, regeneration and thorns.",
+  "priority": 20,
+  "group": "tier",
+  "conditions": {
+    "mobs": "minecraft:wither_skeleton",
+    "structures": "minecraft:fortress",
+    "chance": 0.02
+  },
+  "attributes": {
+    "max_health": { "set": 120 },
+    "scale": { "multiply": 1.4 },
+    "attack_damage": { "multiply": 1.5 },
+    "follow_range": { "set": 40 }
+  },
+  "equipment": {
+    "mainhand": { "item": "minecraft:netherite_sword", "enchantments": { "minecraft:fire_aspect": 2, "minecraft:sharpness": [2, 4] } },
+    "head": { "item": "minecraft:netherite_helmet", "trim": { "material": "minecraft:gold", "pattern": "minecraft:rib" } },
+    "drop_chance": { "mainhand": 0.1, "head": 0.0 }
+  },
+  "name": { "text": "Fortress Warlord", "color": "#B02E26", "bold": true, "visible": true },
+  "persistent": true,
+  "glowing": true,
+  "combat": {
+    "regen": { "amount": 1, "interval": 30 },
+    "on_hurt": { "thorns": 2 },
+    "no_knockback": true
+  },
+  "boss_bar": { "color": "red", "style": "notched_10", "range": 48 },
+  "loot": { "tables": ["minecraft:chests/nether_bridge"], "xp": { "add": 100 } }
+}
