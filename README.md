@@ -6,10 +6,7 @@ targeting, griefing, drops, XP and boss bars.
 
 Mob Rules is server side only; clients don't need it.
 
-Inspired by [In Control](https://github.com/McJtyMods/InControl) by McJty. Mob Rules doesn't
-block spawns; In Control still does that best. Use the two together: In Control decides what
-spawns, and Mob Rules decides what those mobs are like. They can talk through scoreboard tags
-(`add_tags` here, `scoreboardtags_*` there).
+Inspired by [In Control](https://github.com/McJtyMods/InControl) by McJty.
 
 ## How it works
 
