@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+- `mobrules:doppelganger`: a copy of a player with their skin and copies of their equipped gear (never dropped); melee, or a bow if it holds one.
+- `/mobrules doppelganger <player> [pos] [tag]`.
+
 ## 0.6.1
 - `affix_set`: many affixes in one rule file, each loaded as `<file id>/<name>`, with shared pool and conditions.
 - `"affix": "Name"` shorthand.

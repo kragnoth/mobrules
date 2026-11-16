@@ -43,6 +43,19 @@ public final class MobRulesCommand {
                         .then(Commands.literal("stop").then(Commands.argument("event", StringArgumentType.string())
                                 .suggests((c, b) -> SharedSuggestionProvider.suggest(WorldEvents.active(c.getSource().getLevel()).stream().map(k -> "\"" + k + "\""), b))
                                 .executes(c -> event(c, StringArgumentType.getString(c, "event"), false)))))
+                .then(Commands.literal("doppelganger")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(c -> com.kragnoth.mobrules.entity.Doppelganger.summon(c.getSource(),
+                                        EntityArgument.getPlayer(c, "player"), c.getSource().getPosition(), null))
+                                .then(Commands.argument("pos", net.minecraft.commands.arguments.coordinates.Vec3Argument.vec3())
+                                        .executes(c -> com.kragnoth.mobrules.entity.Doppelganger.summon(c.getSource(),
+                                                EntityArgument.getPlayer(c, "player"),
+                                                net.minecraft.commands.arguments.coordinates.Vec3Argument.getVec3(c, "pos"), null))
+                                        .then(Commands.argument("tag", StringArgumentType.word())
+                                                .executes(c -> com.kragnoth.mobrules.entity.Doppelganger.summon(c.getSource(),
+                                                        EntityArgument.getPlayer(c, "player"),
+                                                        net.minecraft.commands.arguments.coordinates.Vec3Argument.getVec3(c, "pos"),
+                                                        StringArgumentType.getString(c, "tag")))))))
                 .then(Commands.literal("recheck")
                         .then(Commands.argument("targets", EntityArgument.entities())
                                 .executes(c -> recheck(c, EntityArgument.getEntities(c, "targets"))))));

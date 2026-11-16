@@ -313,6 +313,16 @@ Events go in `data/<ns>/mobrules_events/<name>.json`:
 | `/mobrules inspect <targets>` | rules a mob got, its health, spawn type, and every attribute change |
 | `/mobrules apply "<rule id>" <targets>` | applies one rule now, ignoring its conditions (for testing) |
 | `/mobrules recheck <targets>` | runs all rules against the mobs again |
+| `/mobrules doppelganger <player> [pos] [tag]` | spawns a copy of the player (see Doppelganger) |
+
+## Doppelganger
+
+`mobrules:doppelganger` is a mob drawn with a player's skin (slim or wide arms) that wears copies of that player's equipped
+gear and never drops it. Spawn it with the command above (from a quest, a KubeJS script or a command block); it targets that
+player, persists, and uses a bow if it holds one. Its base stats are a player's (20 health, unarmed 1 damage) plus its
+gear's attributes, so give it the fight you want with an ordinary rule with `"conditions": {"mobs": "mobrules:doppelganger"}`, or
+match only one arena's copies with `"has_tags": ["<tag>"]`. It is named "<player>'s Doppelganger" unless a rule names it
+(override the lang key `entity.mobrules.doppelganger.of` to rename all of them).
 
 ## Examples
 

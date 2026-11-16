@@ -37,6 +37,7 @@ public final class MobRules {
         container.registerConfig(ModConfig.Type.COMMON, MobRulesConfig.SPEC);
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) com.kragnoth.mobrules.editor.MobRulesClient.init(modBus, container);
         MobRulesAttachments.register(modBus);
+        com.kragnoth.mobrules.entity.MobRulesEntities.register(modBus);
 
         var bus = NeoForge.EVENT_BUS;
         bus.addListener(AddReloadListenerEvent.class, e -> {

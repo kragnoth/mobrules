@@ -22,6 +22,8 @@ public final class MobRulesClient {
 
     public static void init(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.CLIENT, MobRulesClientConfig.SPEC);
+        modBus.addListener(net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers.class,
+                e -> e.registerEntityRenderer(com.kragnoth.mobrules.entity.MobRulesEntities.DOPPELGANGER.get(), DoppelgangerRenderer::new));
         NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, e -> e.getDispatcher().register(
                 Commands.literal("mobrules_editor").executes(c -> {
                     open();
