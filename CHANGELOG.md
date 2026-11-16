@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1
+- Spawner `players` filter: `has_tags` / `lacks_tags` on the player the spawner runs around.
+
 ## 0.7.0
 - `mobrules:doppelganger`: a copy of a player with their skin and copies of their equipped gear (never dropped); melee, or a bow if it holds one.
 - `/mobrules doppelganger <player> [pos] [tag]`.

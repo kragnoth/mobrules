@@ -208,6 +208,7 @@ Drop items accept everything an equipment item does. XP only drops on player kil
 - `spawn` blocks or caps world spawns that match the rule's conditions.
 - `spawner` adds new spawns near players wherever the conditions pass, searching every floor level. That makes it work inside structures (set `structures`) and around features: use the `near_blocks` condition, e.g. `{"blocks": ["#minecraft:logs"], "radius": 6}`.
 - Spawner mobs always get the rest of their own rule.
+- `"players": {"has_tags": ["wv_occult_foundry"], "lacks_tags": ["..."]}` in a spawner limits it to players with (or without) those scoreboard tags. Untagged players are skipped before anything else runs, so this costs nothing for them.
 - Biome spawn lists are edited with NeoForge biome modifiers, which the editor writes for you.
 
 ## Editor

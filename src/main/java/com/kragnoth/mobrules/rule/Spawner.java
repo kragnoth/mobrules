@@ -56,6 +56,8 @@ public final class Spawner {
     NumberSpec group = NumberSpec.constant(1);
     String placement = "ground";
     boolean vanillaChecks = true;
+    /** Only players with all of these scoreboard tags (and none of lacksTags) get spawns. */
+    java.util.List<String> playerHasTags = java.util.List.of(), playerLacksTags = java.util.List.of();
 
     private Spawner(EntityType<?> mob) {
         this.mob = mob;
@@ -64,7 +66,7 @@ public final class Spawner {
     public static Spawner parse(JsonElement e, String path) {
         JsonObject o = Json.object(e, path);
         Json.checkKeys(o, path, Set.of("mob", "interval", "attempts", "chance", "distance", "vertical_range", "group",
-                "max_nearby", "placement", "vanilla_checks", "persistent"));
+                "max_nearby", "placement", "vanilla_checks", "persistent", "players"));
         String id = Json.string(o, "mob", path);
         if (id == null) throw new RuleException(path, "needs \"mob\"");
         Optional<EntityType<?>> type = BuiltInRegistries.ENTITY_TYPE.getOptional(ResourceLocation.parse(id));
@@ -92,11 +94,19 @@ public final class Spawner {
             if (!Set.of("ground", "water", "air").contains(s.placement)) throw new RuleException(path + ".placement", "use ground, water or air");
         }
         s.vanillaChecks = Json.bool(o, "vanilla_checks", true, path);
+        if (o.has("players")) {
+            JsonObject pl = Json.object(o.get("players"), path + ".players");
+            Json.checkKeys(pl, path + ".players", Set.of("has_tags", "lacks_tags"));
+            s.playerHasTags = Json.strings(pl.get("has_tags"), path + ".players.has_tags");
+            s.playerLacksTags = Json.strings(pl.get("lacks_tags"), path + ".players.lacks_tags");
+        }
         return s;
     }
 
     public void tick(ServerLevel level, ServerPlayer player, Rule rule) {
         if (player.isSpectator()) return;
+        for (String t : playerHasTags) if (!player.getTags().contains(t)) return;
+        for (String t : playerLacksTags) if (player.getTags().contains(t)) return;
         if ((level.getGameTime() + player.getId() * 7L) % interval != 0) return;
         if (!level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING)) return;
         if (mob.getCategory() == MobCategory.MONSTER && level.getDifficulty() == Difficulty.PEACEFUL) return;
